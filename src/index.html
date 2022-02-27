@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Camera Smooth Animation in ThreeJS - by Anderson Mancini</title>
+        <meta name="description" content="One of the things that took me the longest to learn was how to animate the camera smoothly when clicking on an element under the influence of the #threejs OrbitControls. I do this using @trusktr's TweenJS.">
+        <meta name="keywords" content="threejs, smooth camera, camera animation">
+        <meta name="author" content="www.neotix.com.br">
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <link rel="apple-touch-icon" sizes="57x57" href="../static/favicons/apple-icon-57x57.png">
+        <link rel="apple-touch-icon" sizes="60x60" href="../static/favicons/apple-icon-60x60.png">
+        <link rel="apple-touch-icon" sizes="72x72" href="../static/favicons/apple-icon-72x72.png">
+        <link rel="apple-touch-icon" sizes="76x76" href="../static/favicons/apple-icon-76x76.png">
+        <link rel="apple-touch-icon" sizes="114x114" href="../static/favicons/apple-icon-114x114.png">
+        <link rel="apple-touch-icon" sizes="120x120" href="../static/favicons/apple-icon-120x120.png">
+        <link rel="apple-touch-icon" sizes="144x144" href="../static/favicons/apple-icon-144x144.png">
+        <link rel="apple-touch-icon" sizes="152x152" href="../static/favicons/apple-icon-152x152.png">
+        <link rel="apple-touch-icon" sizes="180x180" href="../static/favicons/apple-icon-180x180.png">
+        <link rel="icon" type="image/png" sizes="192x192"  href="../static/favicons/android-icon-192x192.png">
+        <link rel="icon" type="image/png" sizes="32x32" href="../static/favicons/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="96x96" href="../static/favicons/favicon-96x96.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="../static/favicons/favicon-16x16.png">
+        <link rel="manifest" href="../static/favicons/manifest.json">
+        <meta name="msapplication-TileColor" content="#ffffff">
+        <meta name="msapplication-TileImage" content="../static/favicons/ms-icon-144x144.png">
+        <meta name="theme-color" content="#ffffff">      
+    </head>
+
+    <body id="body">
+
+        <div class="lds-roller"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
+        <div id="intro">
+            <h1 data-splitting class="slide-vertical" id="titulo-explorar">Windland</h1>
+            <p data-splitting class="sub-title" id="sub-title-explorar">Browse the map and click on the buildings to engage</p>
+            <a id="btnExplorar">Explore</a>
+        </div>
+
+        <div class="loading-bar"></div>
+        <div id="header">
+            <p>Windland</p>
+            <a id="music">
+                <img width="22" height="22" src="../static/icons/music.svg">
+            </a>
+            <a id="mapmode">
+                <img id="map-icon" width="22" height="22" src="../static/icons/camera.svg">
+            </a>
+
+            <input id="menu-hamburguer" name="menu-hamburguer" type="checkbox" />
+
+            <label for="menu-hamburguer" id="menu_hamburguer">
+                <div class="menu">
+                    <span class="hamburguer"></span>
+                </div>
+            </label>
+
+            <ul id="menu-list">
+                <li><a id="menu-item-1">More Cities</a></li>
+                <li><a id="activate-effects">Toggle effects</a></li>
+                <small>Credits: <a target="_blank" href="https://www.blendswap.com/blend/28155">City</a> |  <a target="_blank" href="https://sketchfab.com/3d-models/wind-turbine-from-poly-by-google-0e172199f8f8495396eeb8fdf69c8c35">Wind Turbine</a>  |  <a target="_blank" href="https://sketchfab.com/3d-models/helicopter-dec45a28e6f346648c3d6585426157b8">Helicopter</a></small>
+            </ul>
+
+        </div>
+
+        <div id="containerWebsite">
+            <div id="nome">
+                <h1 id="jardins">Utility</h1>
+            </div>
+            <progress id="progress" value="0" max="100"></progress>
+        </div>
+
+        <div id="btn-view-image">
+            <a>VER FOTOS</a>
+        </div>
+
+        <div id="btnVoltar">
+            <a id="voltar">VOLTAR</a>
+        </div>
+
+        <div id="btn-continue-explore">
+            <a id="continue">x</a>
+        </div>
+
+        <div id="image-display" class="zoom">
+            <img id="condo-image">
+        </div>
+
+        <div id="footer">
+            <p>Created and develped with love by Anderson Mancini <a href="https://www.neotix.com.br" target="_blank">@neotix</a></p>
+        </div>
+
+    </body>
+
+</html>
