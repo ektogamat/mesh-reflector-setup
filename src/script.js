@@ -1,59 +1,34 @@
 import './main.css'
-
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+// import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+import { gsap } from 'gsap';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
-import { TWEEN } from 'three/examples/jsm/libs/tween.module.min.js'
 import { GUI } from 'three/examples/jsm/libs/dat.gui.module.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
-import fgrVertexShader from '../static/shaders/fgrVertexShader.glsl';
-// import oceanVertexShader from '../static/shaders/oceanVertexShader.glsl';
-// import oceanFragShader from '../static/shaders/oceanFragShader.glsl';
 
 // Efeitos Complexos
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { VignetteShader } from 'three/examples/jsm/shaders/VignetteShader.js';
 import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
-import {EXRLoader} from 'three/examples/jsm/loaders/EXRLoader.js'
+import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js'
 import { RGBShiftShader } from 'three/examples/jsm/shaders/RGBShiftShader.js';
-
-// import { MathUtils } from 'three';
-import { FilmPass } from 'three/examples/jsm/postprocessing/FilmPass.js';
-// import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js'
-// import { SAOPass } from 'three/examples/jsm/postprocessing/SAOPass.js';
-// import { ACESFilmicToneMappingShader } from './jsm/shaders/ACESFilmicToneMappingShader.js';
-// import { LuminosityShader } from './jsm/shaders/LuminosityShader.js';
-// import { SepiaShader } from '../jsm/shaders/SepiaShader.js';
-// import { SobelOperatorShader } from './jsm/shaders/SobelOperatorShader.js';
-// import { OutlineEffect } from './jsm/effects/OutlineEffect.js';
-// import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
-import { ReflectorRTT } from 'three/examples/jsm/objects/ReflectorRTT.js';
-// import { RGBELoader } from './jsm/loaders/RGBELoader.js';
-import {
-    NodeFrame,
-    ExpressionNode,
-    PhongNodeMaterial,
-    MathNode,
-    OperatorNode,
-    TextureNode,
-    BlurNode,
-    FloatNode,
-    ReflectorNode,
-    SwitchNode,
-    NormalMapNode,
-} from 'three/examples/jsm/nodes/Nodes.js';
-
+import { MeshReflectorMaterial } from '../static/shaders/MeshReflectorMaterial.js';
+import glowFragmentShader from '../static/shaders/glowFragmentShader.glsl';
+import glowVertexShader from '../static/shaders/glowVertexShader.glsl';
+// import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
+// import { ImprovedNoise } from 'three/examples/jsm/math/ImprovedNoise.js';
+// import { FilmPass } from 'three/examples/jsm/postprocessing/FilmPass.js';
 
 
 /////////////////////////////////////////////////////////////////////////
 ///// INTERFACE ELEMENTS
 /////////////////////////////////////////////////////////////////////////
-const elem = document.getElementById("containerWebsite");
+const containerTexts = document.getElementById("containerWebsite");
 const nome = document.getElementById("jardins");
 const buttonVoltar = document.getElementById("btnVoltar");
 const buttonMapa = document.getElementById("mapmode");
@@ -81,23 +56,19 @@ const ftsLoader = document.querySelector(".lds-roller");
 /////////////////////////////////////////////////////////////////////////
 ///// MAIN VARIABLES
 /////////////////////////////////////////////////////////////////////////
-let camera, stats, scene, renderer, light, raycaster, raycaster2, model, controls, intersects, helicoptero, helice_helicoptero, helice_rotor, helice, bird;
-let cameraOrtho, sceneOrtho, posx, posy;
+let camera, stats, scene, renderer, light, raycaster, controls, intersects;
 let mapMode = false;
 let mouse = new THREE.Vector2();
 let firstPlay = true;
 let listener, backgroundMusic, backgroundMusicFile, backgroundMusicMediaElement, loaderAudio, textureLoader, loader, loadingManager, mixer;
-let displayImageMode = false;
 let isMobile = false;
 let musicPlay = false;
 let lastCalledTime, delta, fps;
 let loadedAll = false;
-let canAnimate = false;
 let gui;
-let car;
-let intersectableObjects = [];
-// let takeRide = false;
-
+let pickableMeshes = [];
+let pisoExterno;
+let changedMaterial;
 
 
 /////////////////////////////////////////////////////////////////////////
@@ -121,10 +92,8 @@ if(window.location.hash) {
 if (hash == "debug") {
     debug = true;
     gui = new GUI();
-    window.setTimeout(debuger, 200);
     window.setTimeout(setLoadedAll, 500);
     ftsLoader.parentNode.removeChild(ftsLoader);
-    buttonVoltar.style.display = 'block;';
     buttonContinue.style.display = 'block';
 }
 
@@ -162,38 +131,26 @@ function activateMaxConfig(){
 //// LOADING MANAGER
 /////////////////////////////////////////////////
 // elem.style.display = "none";
-if (debug == false) {
+
 
     loadingManager = new THREE.LoadingManager(
         // Loaded
         () => {
-            new TWEEN.Tween(overlayMaterial)
-                .to({ opacity: 0.3 }, 3000)
-                .easing(TWEEN.Easing.Quartic.InOut)
-                .start()
-                .onStart(function () {
-                    // controls.autoRotate = true;
-                    // controls.autoRotateSpeed = 0.2;
-                })
-                .onUpdate(function (object) {
-                    // console.log(overlayMaterial.uniforms.uAlpha);
-                })
-                .onComplete(function () {
-                    buttonExplore.classList.add('ended');
-                    titleExplorar.classList.add('ended');
-                    subTitleExplorar.classList.add('ended');
-                    // introDiv.classList.add('show');
-                    // buttonVoltar.style.display = 'block;';
-                    buttonContinue.style.display = 'block';
-                    // Splitting();
-                    TWEEN.remove(this);
-            });
-            // console.log('loaded');
-            loadingBarElement.style.transform = '';
-            loadingBarElement.classList.add('ended');
+            loadingBarElement.parentNode.removeChild(loadingBarElement);
+            // scene.remove(overlay);
+            gsap.to("#loading-text-intro", {y: '100%', onComplete: function(){
+                
+                document.getElementById("loading-text-intro").parentNode.removeChild(document.getElementById("loading-text-intro"));
+                }, 
+                duration: 0.9, ease: 'power3.inOut'})
+                
             // introText.classList.add('ended');
+            if(debug) debuger();
+            // window.setTimeout(debuger, 200);
 
             loadedAll = true;
+        
+            if(!debug) introAnimation();
         },
 
         // Progress
@@ -202,23 +159,72 @@ if (debug == false) {
             loadingBarElement.style.transform = `scaleX(${progressRatio})`
         }
     )
+
+
+//////////////////////////////////////////////////
+//// INTRO ANIMATION
+/////////////////////////////////////////////////
+
+const tlIntro = gsap.timeline();
+function introAnimation() {
+    
+        
+    
+    // ftsLoader.parentNode.removeChild(ftsLoader);
+
+    loadingBarElement.style.transform = '';
+    // introText.classList.add('ended');
+    document.getElementById("intro").style.display = 'flex';
+
+    // buttonExplore.classList.add('ended');
+    titleExplorar.classList.add('ended');
+    subTitleExplorar.classList.add('ended');
+    // introDiv.classList.add('show');
+    // buttonVoltar.style.display = 'block;';
+    buttonContinue.style.display = 'block';
+    buttonExplore.style.display = 'block';
+    buttonExplore.style.opacity = '1'
+    buttonExplore.style.visibility = 'visible';
+    containerTexts.style.opacity = '1';
+
+
+    // console.log('loaded');
+    loadingBarElement.style.transform = '';
+    loadingBarElement.classList.add('ended');
+
+
+    tlIntro
+    .to(controls.target.set(16.6, 3.4, 8.8), { x: -3.6, y: 2.74, z: -0.1, duration: 6, ease: 'sine.inOut' })
+    .to(camera.position.set(16.6, 3.8, 24), {x: -7, y: 2.5, z: 24, duration: 6, ease: 'sine.inOut' }, "-=6")
+//  .to(camera.position, {, duration: 2, ease: 'sine.easeIn' }, "-=2")
+    .fromTo("#intro h1 span", {yPercent: 150, autoAlpha: 0}, {yPercent: 45, autoAlpha: 1, duration: 0.8, ease: 'power3.easeInOut', stagger: 0.05 }, "-=1")
+    .fromTo("#intro h2 span", {yPercent: 150, autoAlpha: 0}, {yPercent: 45, autoAlpha: 1, duration: 0.7, ease: 'power3.easeInOut', stagger: 0.1 }, "-=0.6")
+    .from("#intro p", {x: 120, autoAlpha: 0, duration: 0.4, ease: 'power3.easeInOut'})
+    .from("#btnExplorar", {y: 150, autoAlpha: 0, duration: 0.5,
+    //  onComplete: animateMenu
+    }
+        )
+//  .from("#button-zoom", {y: "120%", autoAlpha: 0, duration: 0.5, ease: 'Elastic.easeOut', onComplete: animateMenu }, "-=0.2")
+
+// function animateMenu(){
+//     header.style.display = 'flex';
+//     header.classList.add('down');
+//     tlIntro.kill();
+// }
+
 }
+
+
 //////////////////////////////////////////////////
 //// DRACO LOADER CONFIG
 /////////////////////////////////////////////////
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 dracoLoader.setDecoderConfig({ type: 'js' });
-if (debug == false) {
-    ///// Loaders
-    textureLoader = new THREE.TextureLoader(loadingManager);
-    loader = new GLTFLoader(loadingManager);
-    loader.setDRACOLoader(dracoLoader);
-} else {
-    textureLoader = new THREE.TextureLoader();
-    loader = new GLTFLoader();
-    loader.setDRACOLoader(dracoLoader);
-}
+
+textureLoader = new THREE.TextureLoader(loadingManager);
+loader = new GLTFLoader(loadingManager);
+loader.setDRACOLoader(dracoLoader);
 
 
 /////////////////////////////////////////////////////////////////////////
@@ -226,95 +232,82 @@ if (debug == false) {
 /////////////////////////////////////////////////////////////////////////
 const container = document.createElement('div');
 document.body.appendChild(container);
-
-// const renderer2 = new THREE.WebGLRenderer({ antialias: true });
-// renderer2.setPixelRatio(2); //Performance
-// const container2 = document.createElement('div');
-// document.body.appendChild(container2);
-// container2.appendChild(renderer2.domElement);
-// container2.childNodes[0].style.position = 'absolute';
-// container2.childNodes[0].style.width = '400px';
-// container2.childNodes[0].style.height = '200px';
-// container2.childNodes[0].style.top = '60px';
-
 scene = new THREE.Scene();
-// let sceneMap = new THREE.Scene();
-// let sceneFinal = new THREE.Scene();
-
 scene.background = new THREE.Color(0xffffff);
-// scene.fog = new THREE.Fog(new THREE.Color(0xc5c482), 35, 85);
-scene.fog = new THREE.Fog(new THREE.Color(0xffffff), 35, 75);
-
-
-// sceneFinal.background = new THREE.Color(0xf3f5fc).convertLinearToGamma(2.2);
-// sceneFinal.fog = new THREE.Fog(new THREE.Color(0x2f3f5fc).convertLinearToGamma(2.2), 125, 660);
 
 renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-// renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" }); //Performance issue
-renderer.autoClear = false;
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); //Performance
-// renderer.setPixelRatio(0.8); //Performance issue
+renderer.autoClear = true;
+renderer.setPixelRatio(2); //Performance
 renderer.setSize(window.innerWidth, window.innerHeight);
 // renderer.toneMapping = THREE.ACESFilmicToneMapping;
 // renderer.toneMappingExposure = 1.4;
 // renderer.gammaFactor = 2.8;
 renderer.outputEncoding = THREE.sRGBEncoding;
 // renderer.gammaOutput = true;
-renderer.shadowMap.enabled = false; //Performance main issue
-// renderer.shadowMap.type = THREE.VSMShadowMap;
-// renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 container.appendChild(renderer.domElement);
 
+/////////////////////////////////////////////////////////////////////////
+///// FAKE SKY
+/////////////////////////////////////////////////////////////////////////
+const skyGeometry = new THREE.SphereBufferGeometry( 50, 50, 50 );
+const skyTexture = textureLoader.load( 'textures/je_gray_park_2k.jpg' );
+skyTexture.flipY = true;
+const skyMaterial = new THREE.MeshBasicMaterial( { map: skyTexture, side: THREE.BackSide, depthTest: false } );
+const skyMesh = new THREE.Mesh( skyGeometry, skyMaterial );
+skyMesh.position.set(13.9,3.3,0)
+skyMesh.rotation.set(0, 0.8,0)
+scene.add( skyMesh );
+// gui.add(mesh.rotation, 'y').min(0).max(Math.PI*2).step(0.1)
+// gui.add(mesh.position, 'x').min(0).max(100).step(0.1)
+// gui.add(mesh.position, 'y').min(0).max(100).step(0.1)
+
+/////////////////////////////////////////////////////////////////////////
+///// ENVMAP LOADER
+/////////////////////////////////////////////////////////////////////////
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
 pmremGenerator.compileEquirectangularShader();
 let newEnvMap
-new EXRLoader()
-.setDataType(THREE.UnsignedByteType)
+textureLoader
 .load(
-    "textures/sunset_fairway_1k.exr",
+    "textures/dreifaltigkeitsberg_1k.jpg",
     function (texture) {
         let exrCubeRenderTarget = pmremGenerator.fromEquirectangular(texture);
-        let exrBackground = exrCubeRenderTarget.texture;
         newEnvMap = exrCubeRenderTarget ? exrCubeRenderTarget.texture : null;
-        // newEnvMap.offset.y = 500
         // loadObjectAndAndEnvMap(); // Add envmap once the texture has been loaded
-        // scene.environment = newEnvMap
-        loadObjectAndAndEnvMap();
         texture.dispose();
     }
 );
 
-function loadObjectAndAndEnvMap() {
-    // scene.traverse(function (child) {
-    //     //This allow us to check if the children is an instance of the Mesh constructor
-    //     if (child.isMesh) {
-    //         // child.material = new THREE.MeshStandardMaterial({
-    //         //     color: "#555",
-    //         //     roughness: 0.2,
-    //         //     metalness: 2.0,
-    //         //     envMapIntensity: 5.0
-    //         // });
-    //         //child.material.flatShading = false;
+// function loadObjectAndAndEnvMap() {
+//     // scene.traverse(function (child) {
+//     //     //This allow us to check if the children is an instance of the Mesh constructor
+//     //     if (child.isMesh) {
+//     //         // child.material = new THREE.MeshStandardMaterial({
+//     //         //     color: "#555",
+//     //         //     roughness: 0.2,
+//     //         //     metalness: 2.0,
+//     //         //     envMapIntensity: 5.0
+//     //         // });
+//     //         //child.material.flatShading = false;
 
-    //         // console.log("setting envmap");
-    //         // child.material.envMap = newEnvMap;
-    //         // child.metalness= 2.0;
-    //         //Sometimes there are some vertex normals missing in the .obj files, ThreeJs will compute them
-    //         // child.material.envMapIntensity = 1.9;
-    //         // child.material.roughness = 0.8
-    //         child.material.needsUpdate = true;
+//     //         // console.log("setting envmap");
+//     //         // child.material.envMap = newEnvMap;
+//     //         // child.metalness= 2.0;
+//     //         //Sometimes there are some vertex normals missing in the .obj files, ThreeJs will compute them
+//     //         // child.material.envMapIntensity = 1.9;
+//     //         // child.material.roughness = 0.8
+//     //         child.material.needsUpdate = true;
 
-    //     }
-    //     // console.log(child)
-    // });
+//     //     }
+//     //     // console.log(child)
+//     // });
 
-    // scene.environment = newEnvMap
-    scene.background = newEnvMap
-    // scene.envMapIntensity = 0.1
+//     // scene.environment = newEnvMap
+//     // scene.background = newEnvMap
+//     // scene.environment = newEnvMap
     
-    
-}
+// }
 
 
 
@@ -373,182 +366,14 @@ if (navigator.userAgent.match(/Android/i)
     isMobile = true;
 }
 
-
-/////////////////////////////////////////////////////////////////////////
-///// INSTANCE SCATTER CONFIG
-/////////////////////////////////////////////////////////////////////////
-// const api = {
-//     count: 3200,
-//     distribution: 'random',
-//     resample: resample
-// };
-
-// let Arvore, Caule;
-// let stemGeometry;
-// let stemMaterial;
-
-// let sampler;
-// const count = api.count;
-// const ages = new Float32Array(count);
-// const scales = new Float32Array(count);
-// const dummy = new THREE.Object3D();
-
-// const _position = new THREE.Vector3();
-// const _normal = new THREE.Vector3();
-
-// let surface2;
-
-let pickableMeshes = [];
-
-// // Source: https://gist.github.com/gre/1650294
-// const easeOutCubic = function (t) {
-
-//     return (--t) * t * t + 1;
-
-// };
-
-// // Scaling curve causes particles to grow quickly, ease gradually into full scale, then
-// // disappear quickly. More of the particle's lifetime is spent around full scale.
-// const scaleCurve = function (t) {
-
-//     return Math.abs(easeOutCubic((t > 0.5 ? 1 - t : t) * 2));
-
-// };
-
-// // Arvores para instancia
-const normalMapGreen = textureLoader.load('textures/MarblePolishedSlab001a_Normals.png'); 
-// normalMapGreen.wrapS = THREE.RepeatWrapping;
-// normalMapGreen.wrapT = THREE.RepeatWrapping;
-// normalMapGreen.repeat.set( 40, 40 );
-// const materialLambertGreen = new THREE.MeshPhongMaterial({ color: 0x708c63, normalMap: normalMapGreen, normalScale: new THREE.Vector2(0.3, 0.3) });
-// // const materialLambertGreen2 = new THREE.MeshLambertMaterial({ color: 0x708c63 });
-// // const materialLambertGreen = new THREE.MeshLambertMaterial({ color: 0x395033 });
-
-const materialLambertGreen2 = new THREE.MeshLambertMaterial({color: 0x21400F});
-materialLambertGreen2.onBeforeCompile = function(shader) {
-
-    shader.uniforms.time = { value: 0 }
-    // shader.vertexShader = document.getElementById( 'vertexShader' ).textContent;
-    shader.vertexShader = fgrVertexShader;
-    // shader.fragmentShader = document.getElementById( 'fragmentShader' ).textContent;
-    materialLambertGreen2.userData.shader = shader;
-};
-
-// loader.load('models/gltf/Flower/Flower6.glb', function (gltf) {
-//     console.log(gltf.scene)
-
-//     const _Arvore = gltf.scene.getObjectByName('Stem_1');
-//     const _Caule = gltf.scene.getObjectByName('Stem_2');
-//     // stemMaterial = materialLambertGreen2;
-//     stemMaterial = _Arvore.material;
-//     const cauleMaterial = _Caule.material;
-//     stemGeometry = _Arvore.geometry.clone();
-//     const cauleGeometry = _Caule.geometry.clone();
-
-//     const defaultTransform = new THREE.Matrix4()
-//     .makeRotationX(Math.PI / 2)
-//     .multiply(new THREE.Matrix4().makeScale(1, 1, 1));
-
-//     stemGeometry.applyMatrix4(defaultTransform);
-//     cauleGeometry.applyMatrix4(defaultTransform);
-//     // stemGeometry.castShadow = true;
-
-//     Arvore = new THREE.InstancedMesh(stemGeometry, stemMaterial, count);
-//     Caule = new THREE.InstancedMesh(cauleGeometry, cauleMaterial, count);
-//     // Arvore.frustumCulled = true;
-
-//     // var translation = new Float32Array( count * 3 );
-//     // var scale = new Float32Array( count * 3 );
-
-//     // // and iterators for convenience :)
-//     // var translationIterator = 0;
-//     // var scaleIterator = 5;
-
-//     // // and a quaternion (rotations are represented by Quaternions, not Eulers)
-//     // var q = new THREE.Quaternion();
-
-//     // for ( let i = 0; i < count; i++ ) {
-
-//     //     // a random position
-//     //     translation[ translationIterator++ ] = ( Math.random() - .5 ) * 1000;
-//     //     translation[ translationIterator++ ] = ( Math.random() - .5 ) * 1000;
-//     //     translation[ translationIterator++ ] = ( Math.random() - .5 ) * 1000;
-  
-//     //     // randomize quaternion not sure if it's how you do it but it looks random
-//     //     q.set(  ( Math.random() - .5 ) * 2,
-//     //       ( Math.random() - .5 ) * 2,
-//     //       ( Math.random() - .5 ) * 2,
-//     //       Math.random() * Math.PI );
-//     //     q.normalize();
-  
-//     //     // a random scale
-//     //     scale[ scaleIterator++ ] = 0.1 + ( Math.random() * 4 );
-//     //     scale[ scaleIterator++ ] = 0.1 + ( Math.random() * 4 );
-//     //     scale[ scaleIterator++ ] = 0.1 + ( Math.random() * 4 );
-  
-//     //   }
-  
-//     // for (let i = 0; i < count; i++) {
-        
-//     //     // color.setHex( blossomPalette[ Math.floor( Math.random() * blossomPalette.length ) ] );
-//     // }
-
-//     // Instance matrices will be updated every frame.
-//     // Arvore.instanceMatrix.setUsage( THREE.DynamicDrawUsage );
-//     // blossomMesh.instanceMatrix.setUsage( THREE.DynamicDrawUsage );
-
-//     // Intance matrices will not be updated every frame
-//     // Arvore.instanceMatrix.setUsage(THREE.StaticDrawUsage);
-
-//     // Antes resample era chamado aqui.. passei a chamar só depois
-//     // de carregar o pedaço que quero dar Scatter. Mas preciso ver o Async.
-//     // resample();
-
-//     ///////////// Instance Scatter
-//     //Disable Scatter
-//     scene.add(Arvore);
-//     scene.add( Caule );
-
-
-// });
-
-// /////////////////////////////////////////////////////////////////////////
-// ///// AIRPLANE
-// /////////////////////////////////////////////////////////////////////////
-// const materialLambertWhite = new THREE.MeshLambertMaterial({ color: 0xffffff });
-// const materialLambertWhite2 = new THREE.MeshPhongMaterial({ color: 0xffffff });
-// const materialLambertBlue = new THREE.MeshLambertMaterial({ color: 0x305778 });
-// const materialBasicRed = new THREE.MeshPhongMaterial({ color: 0x9D1A17 });
-// loader.load('models/gltf/aviao.glb', function (gltf) {
-//     aviao = gltf.scene;
-
-//     helice = gltf.scene.getObjectByName('Helice');
-//     helice.material = materialBasicRed;
-
-//     gltf.scene.traverse((obj) => {
-//         if (obj.isMesh & obj.name == "Aviao") {
-//             obj.material = materialLambertWhite;
-//             obj.castShadow = true;
-//         }
-//     });
-
-//     aviao.scale.set(0.4,0.4,0.4);
-//     aviao.position.set(-20, 8, -20);
-//     scene.add(aviao);
-
-// });
-
-
 //////////////////////////////////////////////////////////////
 ////// RAYCASTER
 //////////////////////////////////////////////////////////////
 mouse = new THREE.Vector2()
 raycaster = new THREE.Raycaster();
-raycaster2 = new THREE.Raycaster();
 let currentIntersect = null;
 let width = window.innerWidth;
 let height = window.innerHeight;
-
 
 //////////////////////////////////////////////////////////////
 ////// WINDOW FOCUS AND PLAY METHODS
@@ -573,21 +398,6 @@ function pause() {
     console.log('FOCUS LOST!');
     isFocused = false;
     if (backgroundMusicMediaElement !== undefined) backgroundMusicMediaElement.pause();
-
-    // if (backgroundMusicMediaElement !== undefined & musicPlay) {
-    //     new TWEEN.Tween({volume: 0.3}).to({volume: 0}, 1500)
-    //     .easing(TWEEN.Easing.Linear.None)
-    //     .start()
-    //     .onUpdate(function (value) {
-    //         backgroundMusicMediaElement.volume = value.volume;
-    //     }).onComplete(function () {
-    //         // backgroundMusicMediaElement.pause();
-    //         TWEEN.remove(this);
-    //     });
-    // }
-
-    // console.log("RESULTADO " + backgroundMusicMediaElement +"  "+  document.hidden)
-    
 }
 
 function play() {
@@ -596,78 +406,41 @@ function play() {
         backgroundMusicMediaElement.play();
         backgroundMusicMediaElement.volume = 0.3;
     }
-    // if (backgroundMusicMediaElement) {
-    //     var musicUp = new TWEEN.Tween({volume: backgroundMusicMediaElement.volume}).to({volume: 0.3}, 3000)
-    //     .easing(TWEEN.Easing.Linear.None)
-    //     .start()
-    //     .onUpdate(function (value) {
-    //         console.log(value.volume)
-    //         console.log(musicPlay)
-    //         backgroundMusicMediaElement.volume = value.volume;
-    //     }).onComplete(function () {
-    //         TWEEN.remove(this);
-    //     });
-    // }
-    // console.log('This document has focus. Click outside the document to lose focus.');
-
 }
 
 /////////////////////////////////////////////////////////////////////////
 ///// CAMERAS CONFIG
 /////////////////////////////////////////////////////////////////////////
-// Group
+
 const cameraGroup = new THREE.Group()
 scene.add(cameraGroup)
 
-camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 2, 75);
-// camera.position.set(38.2, 2.85, -26.45);
-camera.position.set(-39.9, 3.30, -26.8);
+camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 100);
+camera.position.set(-9.3, 2.8, 19);
 cameraGroup.add(camera)
-
-
-// const debugCamera = new THREE.OrthographicCamera(- width / 2, width / 2, height / 2, - height / 2, -1000, 1000);
-// let debugHelper; 
-// if (debug == true) {
-//     // debugCamera.position.set(0,0,200);
-//     // scene.background = new THREE.Color(0x000000);
-//     // debugHelper = new THREE.CameraHelper( camera );
-//     // scene.add( debugHelper) ;
-// }
-
-// let cameraRide = new THREE.PerspectiveCamera(31, window.innerWidth / window.innerHeight, 2, 420);
-
-cameraOrtho = new THREE.OrthographicCamera(- width / 2, width / 2, height / 2, - height / 2, 1, 10);
-cameraOrtho.position.z = 2;
-sceneOrtho = new THREE.Scene();
-
-// let cameraFinal = new THREE.OrthographicCamera(1 / - 2, 1 / 2, 1 / 2, 1 / - 2, -1000, 1000);
-
-
-/////////////////////////////////////////////////////////////////////////
-///// CUSTOM MOUSE CURSOR
-/////////////////////////////////////////////////////////////////////////
-document.getElementById('body').style.cursor = 'grab';
-const map = textureLoader.load('textures/mouse.png');
-const materialCursor = new THREE.SpriteMaterial({ map: map });
-const sprite = new THREE.Sprite(materialCursor);
-sprite.scale.set(40, 40, 1);
-sceneOrtho.add(sprite);
-
 
 /////////////////////////////////////////////////////////////////////////
 ///// CONTROLS
 /////////////////////////////////////////////////////////////////////////
 controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(3.41,2,-10);
-// controls.enableDamping = true;
-// controls.dampingFactor = 0.03;
-controls.enableZoom = true;
-// controls.zoomSpeed = 0.2;
 // controls.enableRotate = false;
+controls.enablePan = true
+controls.panSpeed = 3
+
 controls.screenSpacePanning = false;
 controls.enabled = false;
+let targetDebug;
+
+// if (debug){
+//     targetDebug = new THREE.Mesh(
+//         new THREE.BoxGeometry(1,1,1,2,2,2), new THREE.MeshBasicMaterial()
+//     )
+//     scene.add(targetDebug);    
+// }
+
 // controls.autoRotateSpeed = 0.4;
-camera.lookAt(controls.target);
+// camera.lookAt(controls.target);
 
 // var minPan = new THREE.Vector3( - 10, - 10, - 10 );
 // var maxPan = new THREE.Vector3( 10, 10, 10 );
@@ -680,474 +453,307 @@ camera.lookAt(controls.target);
 //     camera.position.sub(_v);
 // })
 
-// if(debug == true) debugCamera.lookAt(controls.target);
 
 /////////////////////////////////////////////////////////////////////////
 ///// LIGHTS CONFIG
 /////////////////////////////////////////////////////////////////////////
 
 //Ambient Light
-// const ambient = new THREE.AmbientLight(0x3e4266, 0.847); //Performance issue
-const ambient = new THREE.AmbientLight(0xd9d9eb, 0.005); //Performance issue
+const ambient = new THREE.AmbientLight(0xd9d9eb, 0.15); //Performance issue
 scene.add(ambient);
 
 //Directional Light
-light = new THREE.PointLight(0xefeff7, 0.7); //Performance issue
-
-
-//Point Car Light
-// const spotLightCar = new THREE.SpotLight(0xd7af87, 0.4, 6, 0.8, 0.4, 0);
-// spotLightCar.rotation.set(0,0,0);
-// spotLightCar.target.position.set(1,0,0);
-// spotLightCar.add( spotLightCar.target );
-// scene.add(spotLightCar);
-
-// //Point Helicopter Light
-// const spotLightHeli = new THREE.SpotLight(0xd7af87, 0.3, 6, 0.8, 0.4, 0);
-// spotLightHeli.rotation.set(0,0,0);
-// spotLightHeli.target.position.set(0,-1,0);
-// spotLightHeli.add( spotLightHeli.target );
-// scene.add(spotLightHeli);
-
-// const spotLightHelper = new THREE.SpotLightHelper( spotLightHeli );
-// scene.add( spotLightHelper );
-
-
-// light = new THREE.DirectionalLight(0xf0dbb7, 1.6); //Performance issue
-light.position.set(75, 62, -100);
-// light.position.set(10, 22, 40);
-// scene.add( light.target );
-// light.target.position.set(20,0,0);
-
-// light.position.set(100, 33, 100);
+light = new THREE.PointLight(0xefeff7, 0.196); //Performance issue
+light.position.set(75, 62, -90);
 scene.add(light);
-// Sombras dentro do Three
-// light.castShadow = false; // default false
-// light.shadow.camera.near = 0;
-// light.shadow.camera.far = 80;
-// light.shadow.camera.right = 20;
-// light.shadow.camera.left = - 20;
-// light.shadow.camera.top = 20;
-// light.shadow.camera.bottom = -20;
-// light.shadow.mapSize.width = 1024;
-// light.shadow.mapSize.height = 1024;
-// light.shadow.radius = 40;
-// light.shadow.bias = -0.001;
-// light.shadow.normalBias = 0;
-// light.shadow.blurSamples = 10
-
-
-
 
 /////////////////////////////////////////////////////////////////////////
-///// OCEAN 
+///// FAKE VOLUMETRICS
 /////////////////////////////////////////////////////////////////////////
-// const debugObject = {}
-
-// // Colors
-// debugObject.depthColor = '#186691'
-// debugObject.surfaceColor = '#9bd8ff'
-
-// const materialOcean = new THREE.MeshLambertMaterial({color: 0x3469a0})
-
-// materialOcean.onBeforeCompile = function(shader) {
-    
-//     shader.uniforms.uTime = { value: 0 };
-//     shader.vertexShader = oceanVertexShader;
-//     // shader.fragmentShader = oceanFragShader;
-//     // shader.vertexShader = shader.vertexShader.replace(
-//     //     '#include <begin_vertex>',
-//     //     `
-//     //         #include <begin_vertex>
-
-//     //      float uTime;
-//     //          float uBigWavesElevation;
-//     //          vec2 uBigWavesFrequency;
-//     //          float uBigWavesSpeed;
-
-//     //          float uSmallWavesElevation;
-//     //          float uSmallWavesFrequency;
-//     //          float uSmallWavesSpeed;
-//     //          float uSmallIterations;
-
-//     //          float vElevation;
-//     //     `
-//     // )
-//     shader.uBigWavesElevation= { value: 0.253 },
-//     shader.uBigWavesFrequency= { value: new THREE.Vector2(1.53, 0.3) },
-//     shader.uBigWavesSpeed= { value: 0.96 },
-
-//     shader.uSmallWavesElevation= { value: 0.12 },
-//     shader.uSmallWavesFrequency= { value: 1.2 },
-//     shader.uSmallWavesSpeed= { value: 0.96 },
-//     shader.uSmallIterations= { value: 5 },
-
-//     shader.uDepthColor= { value: new THREE.Color(debugObject.depthColor) },
-//     shader.uSurfaceColor= { value: new THREE.Color(debugObject.surfaceColor) },
-//     shader.uColorOffset= { value: 0.075 },
-//     shader.uColorMultiplier= { value: 2.3 }
-    // materialOcean.shader = shader;
-    //  console.log(shader);
-// };
-
-// const materialOcean = new THREE.ShaderMaterial({
-//     vertexShader: oceanVertexShader,
-//     fragmentShader: oceanFragShader,
-//     uniforms:
-//     {
-//         uTime: { value: 0 },
-        
-//         uBigWavesElevation: { value: 0.253 },
-//         uBigWavesFrequency: { value: new THREE.Vector2(1.53, 0.3) },
-//         uBigWavesSpeed: { value: 0.96 },
-
-//         uSmallWavesElevation: { value: 0.12 },
-//         uSmallWavesFrequency: { value: 1.2 },
-//         uSmallWavesSpeed: { value: 0.96 },
-//         uSmallIterations: { value: 5 },
-
-//         uDepthColor: { value: new THREE.Color(debugObject.depthColor) },
-//         uSurfaceColor: { value: new THREE.Color(debugObject.surfaceColor) },
-//         uColorOffset: { value: 0.075 },
-//         uColorMultiplier: { value: 2.3 },
-//         lights: true,
-//         fog: true
-//     }
+// let fakeVolumetrics = new THREE.ShaderMaterial( 
+// {
+//     uniforms: 
+//     { 
+//         "c":   { type: "f", value: 0.3 },
+//         "p":   { type: "f", value: 5 },
+//         glowColor: { type: "c", value: new THREE.Color('#fcfcdd') },
+//         viewVector: { type: "v3", value: camera.position },
+//         "op": { type: "f", value: 1.0 }
+//     },
+//     vertexShader: glowVertexShader,
+//     fragmentShader: glowFragmentShader,
+//     side: THREE.FrontSide,
+//     blending: THREE.AdditiveBlending,
+//     transparent: true,
+//     depthWrite	: false,
 // });
 
-// gui.addColor(debugObject, 'depthColor').onChange(() => { materialOcean.uniforms.uDepthColor.value.set(debugObject.depthColor) })
-// gui.addColor(debugObject, 'surfaceColor').onChange(() => { materialOcean.uniforms.uSurfaceColor.value.set(debugObject.surfaceColor) })
-
-// gui.add(materialOcean.uniforms.uBigWavesElevation, 'value').min(0).max(1).step(0.001).name('uBigWavesElevation')
-// gui.add(materialOcean.uniforms.uBigWavesFrequency.value, 'x').min(0).max(10).step(0.001).name('uBigWavesFrequencyX')
-// gui.add(materialOcean.uniforms.uBigWavesFrequency.value, 'y').min(0).max(10).step(0.001).name('uBigWavesFrequencyY')
-// gui.add(materialOcean.uniforms.uBigWavesSpeed, 'value').min(0).max(4).step(0.001).name('uBigWavesSpeed')
-
-
-// gui.add(materialOcean.uniforms.uSmallWavesElevation, 'value').min(0).max(1).step(0.001).name('uSmallWavesElevation')
-// gui.add(materialOcean.uniforms.uSmallWavesFrequency, 'value').min(0).max(30).step(0.001).name('uSmallWavesFrequency')
-// gui.add(materialOcean.uniforms.uSmallWavesSpeed, 'value').min(0).max(4).step(0.001).name('uSmallWavesSpeed')
-// gui.add(materialOcean.uniforms.uSmallIterations, 'value').min(0).max(5).step(1).name('uSmallIterations')
-
-// gui.add(materialOcean.uniforms.uColorOffset, 'value').min(0).max(1).step(0.001).name('uColorOffset')
-// gui.add(materialOcean.uniforms.uColorMultiplier, 'value').min(0).max(10).step(0.001).name('uColorMultiplier')
-
-
-// materialOcean.onBeforeCompile = function(shader) {
-//     side: THREE.DoubleSide;
-//     shader.uniforms.time = { value: 0 };
-//     shader.vertexShader = oceanVertexShader;
-//     shader.fragmentShader = oceanFragShader;
-//     materialOcean.userData.shader = shader;
-// };
-
-// const materialOcean = new THREE.MeshBasicMaterial({color: 0x3469a0, transparent: true})
-
-// const oceanGeometry = new THREE.BoxBufferGeometry(5, 5, 2, 64, 64,2)
-// const oceanMesh = new THREE.Mesh(oceanGeometry, materialOcean)
-// oceanMesh.position.set(0,5,0)
-// oceanMesh.rotation.set(- Math.PI /2, 0, 0)
-// scene.add(oceanMesh)
+// gui.add(fakeVolumetrics.uniforms[ "c" ], 'value').min(0).max(7).step(0.001)
+// gui.add(fakeVolumetrics.uniforms[ "p" ], 'value').min(-100).max(100).step(0.001)
+const floorTexture = textureLoader.load('textures/normal_floor.png');
+let pisoMadeira;
 
 
 
-/////////////////////////////////////////////////////////////////////////
-///// LOADER 
-/////////////////////////////////////////////////////////////////////////
-
-// const overlayMaterial = new THREE.MeshBasicMaterial({color: 0x759A70, transparent: true, side: THREE.DoubleSide})
-const overlayMaterial = new THREE.MeshBasicMaterial({color: 0x59C3AA, transparent: true, side: THREE.DoubleSide})
-const overlayGeometry = new THREE.PlaneGeometry(width, height, 1, 1)
-const overlay = new THREE.Mesh(overlayGeometry, overlayMaterial)
-overlay.position.set(camera.position.x +5,camera.position.y,camera.position.z)
-overlay.lookAt(camera.position)
-overlay.rotation.set(0, Math.PI, Math.PI /2)
-// overlay.lookAt(camera.position)
-
-/////////////////////////////////////////////////////////////////////////
-///// LOADER OVERLAY
-/////////////////////////////////////////////////////////////////////////
-if (debug == false) {
-    scene.add(overlay)
-}
-
-/////////////////////////////////////////////////////////////////////////
-///// CLOUDS
-/////////////////////////////////////////////////////////////////////////
-const cloudsTexture = textureLoader.load('textures/cloud.png'); 
-const cloudsMaterial = new THREE.MeshBasicMaterial({color: 0xffffff, map: cloudsTexture, transparent: true, depthWrite: false, depthTest: false, depthFunc: THREE.LessEqualDepth})
-const cloudsGeometry = new THREE.PlaneGeometry(20, 6, 1, 1)
-const cloudsMesh = new THREE.Mesh(cloudsGeometry, cloudsMaterial);
-const cloudsMesh2 = new THREE.Mesh(cloudsGeometry, cloudsMaterial);
-cloudsMesh.position.set(-Math.random() *20, 12, 0);
-cloudsMesh.rotation.set(- Math.PI /2, -1, -8);
-cloudsMesh.scale.set(0.6,0.6, 0);
-cloudsMesh.name = "Cloud1"
-scene.add(cloudsMesh);
-
-cloudsMesh2.position.set(Math.random() *20, 12, 0);
-cloudsMesh2.rotation.set(Math.PI /2, 0, 0);
-cloudsMesh2.name = "Cloud2"
-scene.add(cloudsMesh2);
-
-// overlay.lookAt(camera.position)
-
-
-let windHeads =[];
 
 /////////////////////////////////////////////////////////////////////////
 ///// LOADING MODEL
 /////////////////////////////////////////////////////////////////////////
-// const floorTexture = textureLoader.load('textures/alphamap.jpg');
-let rodaGigante;
-loader.load('models/gltf/art-gallery8.glb', function (gltf) {
+loader.load('models/gltf/art-gallery28.glb', function (gltf) { // load the model
     
-    console.log(gltf.scene)
-    gltf.scene.traverse((o) => {
-    //     if (o.name.match(/p_/)) {
-    //         // o.material = materialBasicRed;
-    //         // o.material.side = THREE.DoubleSide
-    //         // pickableMeshes.push(o);
-    //         // o.castShadow = true;
-    //     }
+    // console.log(gltf.scene) //log the loaded file so you can check the names
 
-    //     if (o.name.match(/wind2_/)) {
-    //         // o.material = materialBasicRed;
-    //         // o.material.side = THREE.DoubleSide
-    //         // windHeads.push (o);
-    //         // o.castShadow = true;
-    //     }
+    gltf.scene.traverse((o) => { //get each object inside loaded file
 
-        if (o.isMesh) {
+        if (o.isMesh) { //check if it is a mesh (cameras, lights, groups are ignored)
+
+            if (o.name.match(/p_Shaders/)) { //check the name of the object matches with the one you want to change
+
+                o.material = new THREE.MeshPhysicalMaterial({ //create a new glass material to replace the imported one
+                    roughness: 0, // make it clear or blurry
+                    transmission: 0.85, // set the transparency
+                    thickness: 0.5, //add refraction!
+                    envMap: newEnvMap, //very important to give more realism
+                  });
+                  
+                // add interface tweaks
+                // gui.add(o.material, 'roughness').min(0).max(3).step(0.01)
+                // gui.add(o.material, 'transmission').min(0).max(1).step(0.01)
+                // gui.add(o.material, 'thickness').min(-9).max(9).step(0.01)
+
+            }
+
+            o.frustumCulled = false
             //  o.receiveShadow = true;
             //  o.castShadow = true;
 
-            // if (o.name == 'Chao') {
-            //     o.receiveShadow = true;
-            //     o.material = materialLambertWhite;
-            //     o.position.y = 0.25
-            //     o.material.transparent = true;
-            //     o.material.alphaMap = floorTexture;
-            //     o.material.alphaTest = 0.1;
+            if (o.name == 'ParedesPrincipais') {
+                const paredesPrincipaisOld = o.material;
+                o.material = new THREE.MeshLambertMaterial({
+                    color: new THREE.Color(0xffffff),
+                    emissive: new THREE.Color(0xffffff),
+                    emissiveIntensity: 1,
+                    map: paredesPrincipaisOld.map,
+                    emissiveMap: paredesPrincipaisOld.emissiveMap
+                })
+            }
+
+            if (o.name == 'Paredes') {
+                const paredes = o.material;
+                o.material = new THREE.MeshLambertMaterial({
+                    color: new THREE.Color(0xffffff),
+                    emissive: new THREE.Color(0xffffff),
+                    emissiveIntensity: 1,
+                    map: paredes.map,
+                    emissiveMap: paredes.emissiveMap
+                })
+            }
+
+            if (o.name == 'Chao_entrada001') {
+                const chaoEntrada = o.material;
+                o.material = new THREE.MeshLambertMaterial({
+                    color: new THREE.Color(0xffffff),
+                    emissive: new THREE.Color(0xffffff),
+                    emissiveIntensity: 0.4,
+                    map: chaoEntrada.map,
+                    emissiveMap: chaoEntrada.emissiveMap
+                })
+            }
+
+            // if (o.name == 'Chao_entrada') {
+            //     pisoExterno = o;
+            //     const pisoExternoDifuse = o.material.map;
+            //     const pisoExternoNormal = o.material.normalMap;
+            //     pisoExterno.material = new MeshReflectorMaterial(renderer, camera, scene, pisoExterno,
+            //         {
+            //             resolution: 2048,
+            //             blur: [2048, 1024],
+            //             mixStrength: 82.3,
+            //             planeNormal: new THREE.Vector3(0, 1, 0),
+            //             depthToBlurRatioBias: 0.03,
+            //             mixBlur: 2.2,
+            //             mixContrast: 0.92,
+            //             minDepthThreshold: 0.64,
+            //             maxDepthThreshold: 1.67,
+            //             depthScale: 2.7,
+            //             mirror: 0,
+            //             bufferSamples: 8,
+            //             distortionMap: pisoExternoNormal
+            //         });
+            //         pisoExterno.material.setValues({
+            //             roughnessMap: pisoExternoNormal,
+            //             map: pisoExternoDifuse,
+            //             normalScale: new THREE.Vector2(0.5, 15.5),
+            //             normalMap: pisoExternoNormal,
+            //             emissiveMap: pisoExternoDifuse,
+            //             emissive: new THREE.Color(0xffffff),
+            //             emissiveIntensity: 0.49,
+            //             envMapIntensity: 0.08,
+            //             roughness:0.891,
+            //             color: 0xffffff,
+            //             // metalness: 0.5
+            //         })
+            //         addReflectorGUI();
             // }
 
             if (o.name == 'Chao_entrada') {
-                // o.material.map
-                // const phong = new THREE.MeshPhysicalMaterial({
-                //     normalMap: normalMapGreen,
-                //     reflectivity: 1,
-                //     specular: 1,
-                //     normalScale: new THREE.Vector2(1,-10.2),
-                //     envMap: blurMirror,
-                //     map: o.material.map,
-                //     // opacity: 0.85,
-                //     // transparent: true,
-                // })
-                o.material.opacity = 0.74
-                // // o.material.alpha = 0.2
-                // o.material = phong
-                // // o.material.transparent = true
-                o.material.needsUpdate = true;
-                // o.material.opacity = 0.5
-
-                // console.log(rodaGigante);
-                // o.receiveShadow = true;
-                // o.castShadow = true;
+                pisoExterno = o;
+                const pisoExternoDifuse = o.material.map;
+                // const pisoExternoNormal = floorTexture;
+                pisoExterno.material = new MeshReflectorMaterial(renderer, camera, scene, pisoExterno,
+                    {
+                        resolution: 2048,
+                        blur: [1024, 1024],
+                        mixStrength: 6.9,
+                        planeNormal: new THREE.Vector3(0, 1, 0),
+                        depthToBlurRatioBias: 0.65,
+                        mixBlur: 7,
+                        mixContrast: 0.42,
+                        minDepthThreshold: 0.91,
+                        maxDepthThreshold: 0.61,
+                        depthScale: 0.4,
+                        mirror: 0,
+                        bufferSamples: 8,
+                        // distortionMap: pisoExternoNormal
+                    });
+                    pisoExterno.material.setValues({
+                        roughnessMap: floorTexture,
+                        map: pisoExternoDifuse,
+                        normalScale: new THREE.Vector2(0.3, 9.5),
+                        normalMap: floorTexture,
+                        emissiveMap: pisoExternoDifuse,
+                        emissive: new THREE.Color(0xffffff),
+                        emissiveIntensity: 0,
+                        // envMapIntensity: 0.02,
+                        roughness:1.02,
+                        color: 0xffffff,
+                        // metalness: 0.5
+                    })
+                    addReflectorGUI();
             }
 
-            // if (o.name == 'Ocean') {
-            //     o.material = materialOcean;
-            //     // console.log(rodaGigante);
-            //     // o.receiveShadow = true;
-            //     // o.castShadow = true;
-            // }
-            // console.log(o.name.match(/p_/));
-            // if (o.name == 'Landskape_plane_Landscape_color_1_0001') {
-            //     // console.log(o.name)
-            //     // surface2 = o;
-            //     o.material = materialLambertGreen2;
-            //     o.material.side = THREE.DoubleSide
+            if (o.name == 'Chao_madeira') {
+                pisoMadeira = o;
+                const pisoMadeiraOriginalMaterial = o.material;
+                const pisoMadeiraDifuse = o.material.map;
+                // const pisoMadeiraNormal = o.material.normalMap
+                pisoMadeira.material = new MeshReflectorMaterial(renderer, camera, scene, pisoMadeira,
+                    {
+                        resolution: 512,
+                        blur: [1,1],
+                        mixStrength: 8,
+                        planeNormal: new THREE.Vector3(0, 1, 0),
+                        mixContrast: 0.26,
+                        // bufferSamples: 8,
+                        // distortionMap: pisoMadeiraNormal
+                    });
+                    pisoMadeira.material.setValues({
+                        // roughnessMap: pisoMadeiraNormal,
+                        map: pisoMadeiraDifuse,
+                        normalScale: new THREE.Vector2(0.25, 0.25),
+                        // normalMap: pisoMadeiraNormal,
+                        emissiveMap: pisoMadeiraDifuse,
+                        emissive: new THREE.Color(0xffffff),
+                        emissiveIntensity: 0.62,
+                        envMapIntensity: 0.08,
+                        roughness:1.13,
+                        color: 0xffffff,
+                        // metalness: 0.5
+                    })
+                    pisoMadeiraOriginalMaterial.dispose();
+                    renderer.renderLists.dispose();
 
-            //     // reflectorObject = o;
+                    addReflectorGUI2();
 
-            //     // o.receiveShadow = true;
-            // }
+            }
 
-            // if (o.name == 'PineTrees_2') {
-            //     // console.log(o.name)
-            //     // surface2 = o;
-            //     o.material = materialLambertGreen2;
-            //     o.material.side = THREE.DoubleSide
-            //     // o.receiveShadow = true;
-            // }
-            // if (o.name == 'Roads001') {
-            //     // o.material.color = new THREE.Color(0x424359);
-            // }
+            if (o.name.match(/Metais_/)) { // find metals from blender
+                o.material.envMap = newEnvMap; // apply envmap
+            }
+
+            if (o.name.match(/p_/)) { //find clickable objects from blender
+                o.material.envMap = newEnvMap; // apply envmap
+                pickableMeshes.push(o); // select the object to be clickable
+            }
+
+            if (o.name == "fake_volume001") {// find the object to apply custom shader
+                changeMaterialToFakeVolume(o); // calls the function to change the material
+            }
         }
     });
   
-
-    scene.add(gltf.scene);
-    intersectableObjects.push(gltf.scene);
-    // resample();
+    scene.add(gltf.scene); // adds loaded model to the scene
 
 });
 
+function changeMaterialToFakeVolume(objectToBeChanged){ // change the material to fake volume
+    
+    changedMaterial =  new THREE.MeshBasicMaterial({ //create a basic material
+        side: THREE.DoubleSide, //define the side
+        blending: THREE.AdditiveBlending, // use blend mode. Very important!
+        transparent: true, // set it to be transparent
+        depthWrite:  false, // don't write depth so it can't be visible by mesh reflector
+    })
 
-/////////////////////////////////////////////////////////////////////////
-///// MIRROR ON THR FLOR
-/////////////////////////////////////////////////////////////////////////
-// const mirrorBack1 = new Reflector(
-//     new THREE.PlaneBufferGeometry(10, 10),
-//     {
-//         clipBias: 0.001, 
-//         textureWidth: window.innerWidth * window.devicePixelRatio,
-//         textureHeight: window.innerHeight * window.devicePixelRatio,
-//         color: 0x777777, 
-//         recursion: 2,
-//     }
-// )
-// mirrorBack1.scale.set(5,5,5)
-// mirrorBack1.rotation.set(-1.573,0,0)
-// mirrorBack1.position.y =  0.2
-// mirrorBack1.position.x = -10
-// // mirrorBack1.transparent = true;
-// // mirrorBack1.alpha = 0.1;
-// scene.add(mirrorBack1)
+    changedMaterial.onBeforeCompile = function(shader) { //call the method to use custom shader
+        shader.uniforms.c = { type: "f", value: 1 };
+        shader.uniforms.p = { type: "f", value: 0.7 };
+        shader.uniforms.glowColor = { type: "c", value: new THREE.Color('#fcfcdd') }; //#fcfcdd
+        shader.uniforms.viewVector =  { type: "v3", value: camera.position };
+        shader.uniforms.op =  { type: "f", value: 0.01 };
+        shader.vertexShader= glowVertexShader
+        shader.fragmentShader = glowFragmentShader
+        changedMaterial.userData.shader = shader;
+        // gui.add(shader.uniforms["c"], 'value').min(-1).max(1).step(0.01)
+        // gui.add(shader.uniforms["p"], 'value').min(-1).max(6).step(0.01)
+        // gui.add(shader.uniforms["op"], 'value').min(-1).max(1).step(0.01)
+    };
+    objectToBeChanged.material = changedMaterial;
+    objectToBeChanged.needsUpdate = true;
 
-
-
-
-
-
-/////////////////////////////////////////////////////////////////////////
-///// MIRROR ON THR FLOR 2
-/////////////////////////////////////////////////////////////////////////
-const frame = new NodeFrame();
-const planeGeo = new THREE.PlaneGeometry( 20.1, 20.1 );
-const planeGeo2 = new THREE.PlaneGeometry( 20.1, 20.1 );
-const decalNormal = new THREE.TextureLoader().load( 'textures/decal-normal.jpg' );
-const coresChao = new THREE.TextureLoader().load( 'textures/chao.jpg' );
-
-const decalDiffuse = new THREE.TextureLoader().load( 'textures/chao.jpg' );
-decalDiffuse.wrapS = decalDiffuse.wrapT = THREE.RepeatWrapping;
-decalDiffuse.repeat.set(20,20)
-
-let groundMirror;
-let groundMirror2;
-let blurMirror;
-let blurMirror2;
-
-let geometryEspelho, groundMirrorMaterial;
-let geometryEspelho2, groundMirrorMaterial2;
-
-// reflector/mirror plane
-geometryEspelho = new THREE.PlaneGeometry( 20, 20 );
-geometryEspelho2 = new THREE.PlaneGeometry( 20, 20 );
-groundMirror = new ReflectorRTT( geometryEspelho, {
-    clipBias: 0.01,
-    textureWidth: window.innerWidth/4 * window.devicePixelRatio,
-    textureHeight: window.innerHeight/4 * window.devicePixelRatio
-} );
-groundMirror2 = new ReflectorRTT( geometryEspelho2, {
-    clipBias: 0.01,
-    textureWidth: window.innerWidth * window.devicePixelRatio,
-    textureHeight: window.innerHeight * window.devicePixelRatio
-} );
-
-const mask = new SwitchNode( new TextureNode( decalDiffuse ), 'rgb' );
-
-const mirror = new ReflectorNode( groundMirror );
-const mirror2 = new ReflectorNode( groundMirror2 );
-
-const normalMap = new TextureNode( decalNormal );
-const normalXY = new SwitchNode( normalMap, 'xy' );
-const normalXYFlip = new MathNode(
-    normalXY,
-    MathNode.INVERT
-);
-
-const offsetNormal = new OperatorNode(
-    normalXYFlip,
-    new FloatNode( 0 ),
-    OperatorNode.ADD
-);
-
-mirror.offset = new OperatorNode(
-    offsetNormal, // normal
-    new FloatNode(2), // scale
-    OperatorNode.MUL
-);
-
-blurMirror = new BlurNode( mirror );
-blurMirror.size = new THREE.Vector2(
-    window.innerWidth/2 * window.devicePixelRatio,
-    window.innerHeight/2 * window.devicePixelRatio
-);
-blurMirror.uv = new ExpressionNode( 'projCoord.xyz / projCoord.q', 'vec3' );
-blurMirror.uv.keywords[ 'projCoord' ] =  mirror.uv
-blurMirror.radius.x = blurMirror.radius.y = 4;
-
-blurMirror2 = new BlurNode( mirror2 );
-blurMirror2.size = new THREE.Vector2(
-    window.innerWidth * window.devicePixelRatio,
-    window.innerHeight * window.devicePixelRatio
-);
-blurMirror2.uv = new ExpressionNode( 'projCoord.xyz / projCoord.q', 'vec3' );
-blurMirror2.uv.keywords[ 'projCoord' ] =  mirror2.uv
-blurMirror2.radius.x = blurMirror2.radius.y = 2;
-
-// gui.add( { blur: blurMirror.radius.x }, 'blur', 0, 25 ).onChange( function ( v ) {
-
-//     blurMirror.radius.x = blurMirror.radius.y = v;
-
-// } );
-
-groundMirrorMaterial = new PhongNodeMaterial();
-groundMirrorMaterial2 = new PhongNodeMaterial();
-groundMirrorMaterial.environment = blurMirror; // or add "mirror" variable to disable blur
-groundMirrorMaterial2.environment = blurMirror2; // or add "mirror" variable to disable blur
-// groundMirrorMaterial.environmentAlpha = mask;
-groundMirrorMaterial.normal = new NormalMapNode( normalMap );
-// groundMirrorMaterial.normalScale = new FloatNode( 10 );
-
-// test serialization
-/*
-        let library = {};
-        library[ groundMirror.uuid ] = groundMirror;
-        library[ decalDiffuse.uuid ] = decalDiffuse;
-        library[ decalNormal.uuid ] = decalNormal;
-        library[ mirror.textureMatrix.uuid ] = mirror.textureMatrix; // use textureMatrix to projection
-        let json = groundMirrorMaterial.toJSON();
-        groundMirrorMaterial = new NodeMaterialLoader( null, library ).parse( json );
-    */
-//--
-
-const mirrorMesh = new THREE.Mesh( planeGeo, groundMirrorMaterial );
-// add all alternative mirror materials inside the ReflectorRTT to prevent:
-// glDrawElements: Source and destination textures of the draw are the same.
-groundMirror.add( mirrorMesh );
-groundMirror.rotateX( - Math.PI / 2 );
-groundMirror.position.set(16.9, -0.001, 7.5);
-groundMirror.scale.set(1.75,1.2,1);
-scene.add( groundMirror );
+}
 
 
-const mirrorMesh2 = new THREE.Mesh( planeGeo2, groundMirrorMaterial2 );
-groundMirror2.add( mirrorMesh2 );
-groundMirror2.rotateX( - Math.PI / 2 );
-groundMirror2.position.set(-10, -0.001, 9.1)
-groundMirror2.scale.set(1,0.79, 1)
-// groundMirror.position.x = -10
-scene.add( groundMirror2 );
 
+function addReflectorGUI(){
+    if (debug){
+        const reflectorFolder = gui.addFolder('Reflector')
+        reflectorFolder.add(pisoExterno.material, 'roughness').min(0).max(2).step(0.001)
+        reflectorFolder.add(pisoExterno.material, 'envMapIntensity').min(0).max(2).step(0.001)
+        reflectorFolder.add(pisoExterno.material, 'emissiveIntensity').min(0).max(2).step(0.001)
+        reflectorFolder.add(pisoExterno.material, 'metalness').min(0).max(2).step(0.001)
+        // reflectorFolder.addColor(pisoExterno.material, 'color')
+        reflectorFolder.add(pisoExterno.material.reflectorProps, 'mixBlur').min(0).max(7).step(0.001)
+        reflectorFolder.add(pisoExterno.material.reflectorProps, 'mixStrength').min(0).max(200).step(0.001)
+        reflectorFolder.add(pisoExterno.material.reflectorProps, 'depthScale').min(0).max(20).step(0.1)
+        reflectorFolder.add(pisoExterno.material.reflectorProps, 'mixContrast').min(0).max(7).step(0.001)
+        reflectorFolder.add(pisoExterno.material.reflectorProps, 'minDepthThreshold').min(0).max(7).step(0.001)
+        reflectorFolder.add(pisoExterno.material.reflectorProps, 'depthToBlurRatioBias').min(0).max(7).step(0.001)
+        reflectorFolder.add(pisoExterno.material.reflectorProps, 'maxDepthThreshold').min(-5).max(7).step(0.001).onChange(function(){
+            pisoExterno.material.needsUpdate = true;
+        })
+    }
+}
 
-gui.add( groundMirror2.position, 'x').min(-10).max(10).step(0.001);
-gui.add( groundMirror2.position, 'y').min(-10).max(10).step(0.001);
-gui.add( groundMirror2.position, 'z').min(-10).max(10).step(0.001);
-gui.add( groundMirror2.scale, 'x').min(-10).max(10).step(0.001);
-gui.add( groundMirror2.scale, 'y').min(-10).max(10).step(0.001);
-gui.add( groundMirror2.scale, 'z').min(-10).max(10).step(0.001);
+function addReflectorGUI2(){
+    if (debug){
+        const reflectorFolder2 = gui.addFolder('Reflector2')
+        reflectorFolder2.add(pisoMadeira.material, 'roughness').min(0).max(2).step(0.001)
+        reflectorFolder2.add(pisoMadeira.material, 'envMapIntensity').min(0).max(2).step(0.001)
+        reflectorFolder2.add(pisoMadeira.material, 'emissiveIntensity').min(0).max(2).step(0.001)
+        reflectorFolder2.add(pisoMadeira.material, 'metalness').min(0).max(2).step(0.001)
+        // reflectorFolder2.addColor(pisoMadeira.material, 'color')
+        reflectorFolder2.add(pisoMadeira.material.reflectorProps, 'mixBlur').min(0).max(7).step(0.001)
+        reflectorFolder2.add(pisoMadeira.material.reflectorProps, 'mixStrength').min(0).max(200).step(0.001)
+        reflectorFolder2.add(pisoMadeira.material.reflectorProps, 'depthScale').min(0).max(20).step(0.1)
+        reflectorFolder2.add(pisoMadeira.material.reflectorProps, 'mixContrast').min(0).max(7).step(0.001)
+        reflectorFolder2.add(pisoMadeira.material.reflectorProps, 'minDepthThreshold').min(0).max(7).step(0.001)
+        reflectorFolder2.add(pisoMadeira.material.reflectorProps, 'depthToBlurRatioBias').min(0).max(7).step(0.001)
+        reflectorFolder2.add(pisoMadeira.material.reflectorProps, 'maxDepthThreshold').min(-5).max(7).step(0.001).onChange(function(){
+            pisoMadeira.material.needsUpdate = true;
+        })
+    }
+}
 
 /////////////////////////////////////////////////////////////////////////
 ///// EVENT LISTENERS
@@ -1163,8 +769,7 @@ window.addEventListener('focus', play);
 window.addEventListener('resize', onWindowResize);
 musicButton.addEventListener('click', playMusic);
 buttonExplore.addEventListener('click', exploreAnimation);
-backButton.addEventListener('click', backToMap);
-buttonMapa.addEventListener('click', mapModeButton);
+// buttonMapa.addEventListener('click', mapModeButton);
 buttonContinue.addEventListener('click', continueExploration);
 activateEffects.addEventListener('click', activateMaxConfig);
 // buttonViewImage.addEventListener('click', displayImage);
@@ -1176,70 +781,128 @@ menuHamburguer.addEventListener('click', menuHamburguerAtivado);
 
 const renderPass = new RenderPass( scene, camera );
 const renderTarget = new THREE.WebGLMultisampleRenderTarget(
-    width,
-    height,
+    width/2,
+    height/2,
     {
         minFilter: THREE.LinearFilter,
         magFilter: THREE.LinearFilter,
         format: THREE.RGBAFormat,
+
     }
 )
 
 const composer = new EffectComposer(renderer, renderTarget);
 composer.setSize(width, height)
-composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+composer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
 
 ///// VIGNETTE ///////////////////////////////////////////////////////////////
 
 const effectVignette = new ShaderPass(VignetteShader);
-effectVignette.uniforms[ "offset" ].value = 0.9;
-effectVignette.uniforms[ "darkness" ].value = 0.7;
+effectVignette.uniforms[ "offset" ].value = 0.6;
+effectVignette.uniforms[ "darkness" ].value = 0.5;
 
 //////FILM EFFECT ////////////////////////////////////////////////////////////
-const effectFilm = new FilmPass( .09, 0.05, 0, false );
+// const effectFilm = new FilmPass( .09, 0, 0, false );
 
 const gammaCorrection = new ShaderPass(GammaCorrectionShader)
 
-// const smaaPass = new SMAAPass();
+// const smaaPass = new SMAAPass(width, height);
 
 /////Bokeh //////////////////////////////////////////////////////////////
 
-const bokehPass = new BokehPass( scene, camera, {   
-       width: 512,
-       height: 512
-   } );
+// const bokehPass = new BokehPass( scene, camera, {   
+//        width: 512,
+//        height: 512
+//    } );
 
-    const effectController = {
+//     const effectController = {
 
-       focus: 0,
-       aperture: 0,
-       maxblur: 0.01
+//        focus: 0,
+//        aperture: 0,
+//        maxblur: 0.01
 
-   };
+//    };
 
-   const matChanger = function ( ) {
+//    const matChanger = function ( ) {
 
-	bokehPass.uniforms[ "focus" ].value = effectController.focus;
-	bokehPass.uniforms[ "aperture" ].value = effectController.aperture * 0.00001;
-	bokehPass.uniforms[ "maxblur" ].value = effectController.maxblur;
+// 	bokehPass.uniforms[ "focus" ].value = effectController.focus;
+// 	bokehPass.uniforms[ "aperture" ].value = effectController.aperture * 0.00001;
+// 	bokehPass.uniforms[ "maxblur" ].value = effectController.maxblur;
 
-   };
+//    };
 
-matChanger();
+// matChanger();
 
 /////BLoom //////////////////////////////////////////////////////////////
-const unrealBloomPass = new UnrealBloomPass(new THREE.Vector2(512,512))
-unrealBloomPass.strength = 0.097
-unrealBloomPass.radius = 1
-unrealBloomPass.threshold = 0.56
+const unrealBloomPass = new UnrealBloomPass(new THREE.Vector2(256,256))
+unrealBloomPass.strength = 0.18
+unrealBloomPass.radius = 0.4
+unrealBloomPass.threshold = 0.98
 
 ///////////RGBSHIFT/////////////////////////////////////////////////////
 const rgbShift = new ShaderPass(RGBShiftShader);
 rgbShift.uniforms[ "amount" ].value = 0.0006
 rgbShift.uniforms[ "angle" ].value = 0.5
 
+/////////// DISTORT ////////////////////////////////////////////////////
+function getDistortionShaderDefinition()
+{
+    return {
 
+        uniforms: {
+            "tDiffuse":         { type: "t", value: null },
+            "strength":         { type: "f", value: 0 },
+            "height":           { type: "f", value: 1 },
+            "aspectRatio":      { type: "f", value: 1 },
+            "cylindricalRatio": { type: "f", value: 1 }
+        },
 
+        vertexShader: [
+            "uniform float strength;",          // s: 0 = perspective, 1 = stereographic
+            "uniform float height;",            // h: tan(verticalFOVInRadians / 2)
+            "uniform float aspectRatio;",       // a: screenWidth / screenHeight
+            "uniform float cylindricalRatio;",  // c: cylindrical distortion ratio. 1 = spherical
+
+            "varying vec3 vUV;",                // output to interpolate over screen
+            "varying vec2 vUVDot;",             // output to interpolate over screen
+
+            "void main() {",
+                "gl_Position = projectionMatrix * (modelViewMatrix * vec4(position, 1.0));",
+
+                "float scaledHeight = strength * height;",
+                "float cylAspectRatio = aspectRatio * cylindricalRatio;",
+                "float aspectDiagSq = aspectRatio * aspectRatio + 1.0;",
+                "float diagSq = scaledHeight * scaledHeight * aspectDiagSq;",
+                "vec2 signedUV = (2.0 * uv + vec2(-1.0, -1.0));",
+
+                "float z = 0.5 * sqrt(diagSq + 1.0) + 0.5;",
+                "float ny = (z - 1.0) / (cylAspectRatio * cylAspectRatio + 1.0);",
+
+                "vUVDot = sqrt(ny) * vec2(cylAspectRatio, 1.0) * signedUV;",
+                "vUV = vec3(0.5, 0.5, 1.0) * z + vec3(-0.5, -0.5, 0.0);",
+                "vUV.xy += uv;",
+            "}"
+        ].join("\n"),
+
+        fragmentShader: [
+            "uniform sampler2D tDiffuse;",      // sampler of rendered scene?s render target
+            "varying vec3 vUV;",                // interpolated vertex output data
+            "varying vec2 vUVDot;",             // interpolated vertex output data
+
+            "void main() {",
+                "vec3 uv = dot(vUVDot, vUVDot) * vec3(-0.5, -0.5, -1.0) + vUV;",
+                "gl_FragColor = texture2DProj(tDiffuse, uv);",
+            "}"
+        ].join("\n")
+
+    };
+}
+
+var distortEffect = new ShaderPass( getDistortionShaderDefinition() );
+distortEffect.uniforms[ "strength" ].value = 0.52;
+distortEffect.uniforms[ "height" ].value = Math.tan(THREE.Math.degToRad(85) / 2) / camera.aspect;;
+distortEffect.uniforms[ "aspectRatio" ].value = camera.aspect;
+distortEffect.uniforms[ "cylindricalRatio" ].value = 2;
 
 if (debug){
     // gui.add( effectController, "focus", 0, 90.0, 0.001 ).onChange( matChanger );
@@ -1248,12 +911,14 @@ if (debug){
 }
 composer.addPass( renderPass );
 // composer.addPass( bokehPass );
-composer.addPass( rgbShift );
+// composer.addPass( rgbShift );
 composer.addPass( gammaCorrection );
-// composer.addPass( unrealBloomPass );
+composer.addPass( unrealBloomPass );
+// composer.addPass( effectFilm );
+composer.addPass( distortEffect );
 composer.addPass( effectVignette );
-composer.addPass( effectFilm );
 // composer.addPass( smaaPass );
+// distortEffect.renderToScreen = true;
 
 
 
@@ -1268,41 +933,40 @@ function onWindowResize() {
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
 
-    cameraOrtho.left = - width / 2;
-    cameraOrtho.right = width / 2;
-    cameraOrtho.top = height / 2;
-    cameraOrtho.bottom = - height / 2;
-    cameraOrtho.updateProjectionMatrix();
+    // cameraOrtho.left = - width / 2;
+    // cameraOrtho.right = width / 2;
+    // cameraOrtho.top = height / 2;
+    // cameraOrtho.bottom = - height / 2;
+    // cameraOrtho.updateProjectionMatrix();
 
     renderer.setSize(width, height);
-
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.setPixelRatio(1)
     //Composer
     if (maxConfig || debug) composer.setSize( width, height );
 
-    groundMirror.getRenderTarget().setSize(
-        window.innerWidth/4 * window.devicePixelRatio,
-        window.innerHeight/4 * window.devicePixelRatio
-    );
+    // groundMirror.getRenderTarget().setSize(
+    //     window.innerWidth/4 * window.devicePixelRatio,
+    //     window.innerHeight/4 * window.devicePixelRatio
+    // );
 
-    blurMirror.size.set(
-        window.innerWidth/2 * window.devicePixelRatio,
-        window.innerHeight/2 * window.devicePixelRatio
-    );
+    // blurMirror.size.set(
+    //     window.innerWidth/2 * window.devicePixelRatio,
+    //     window.innerHeight/2 * window.devicePixelRatio
+    // );
     
-    blurMirror.updateFrame();
+    // blurMirror.updateFrame();
 
-    groundMirror2.getRenderTarget().setSize(
-        window.innerWidth/4 * window.devicePixelRatio,
-        window.innerHeight/4 * window.devicePixelRatio
-    );
+    // groundMirror2.getRenderTarget().setSize(
+    //     window.innerWidth/4 * window.devicePixelRatio,
+    //     window.innerHeight/4 * window.devicePixelRatio
+    // );
 
-    blurMirror2.size.set(
-        window.innerWidth/2 * window.devicePixelRatio,
-        window.innerHeight/2 * window.devicePixelRatio
-    );
+    // blurMirror2.size.set(
+    //     window.innerWidth/2 * window.devicePixelRatio,
+    //     window.innerHeight/2 * window.devicePixelRatio
+    // );
     
-    blurMirror2.updateFrame();
+    // blurMirror2.updateFrame();
 }
 
 const cursor = {}
@@ -1320,23 +984,20 @@ function onMouseMove(event) {
     cursor.x = event.clientX / window.innerWidth - 0.5
     cursor.y = event.clientY / window.innerHeight - 0.5
 
-    posx = event.clientX - window.innerWidth / 2;
-    posy = event.clientY - window.innerHeight / 2;
-
-    if (!isMobile) {
-        sprite.position.set(posx, -(posy), 1);
-    }
+    // if (!isMobile) {
+    //     sprite.position.set(posx, -(posy), 1);
+    // }
 
 
-    // console.log(camera.position)
+    // console.log("Camera position: ",camera.position.x , camera.position.y, camera.position.z)
+    // console.log("Target position: ",controls.target.x, controls.target.y, controls.target.z )
     // console.log(controls.target)
 
-    // raycaster.setFromCamera(mouse, camera);
     raycaster.setFromCamera(mouse, camera);
     intersects = raycaster.intersectObjects(pickableMeshes);
 
     // console.log(intersects.length)
-    if (intersects.length > 0 & controls.enabled) {
+    if (intersects.length > 0 & controls.enabled & document.getElementById('body').style.cursor != 'grabbing') {
         if (!currentIntersect) {
 
             // console.log(intersects[0].object.parent.name);
@@ -1346,41 +1007,17 @@ function onMouseMove(event) {
             }
             animarTexto();
            
-
         }
-        currentIntersect = intersects[0].object.parent
-        const condoName = currentIntersect.name.substring(2);
-        nome.innerHTML = (this != `${condoName}`) ? `${condoName}` : "";
-        // console.log(condoName)
 
-        // if (currentIntersect.object.name === 'p_italia') {
-        //     nome.innerHTML = (this != 'Jardins Itália') ? 'Jardins Itália' : "";
-        // }
-
-        // if (currentIntersect.object.name === 'p_verona') {
-        //     nome.innerHTML = (this != 'Jardins Verona') ? 'Jardins Verona' : "";
-        // }
-
-        // if (currentIntersect.object.name === 'p_valencia') {
-        //     nome.innerHTML = (this != 'Jardins Valência') ? 'Jardins Valência' : "";
-        // }
-
-        // if (currentIntersect.object.name === 'p_monaco') {
-        //     nome.innerHTML = (this != 'Jardins Mônaco') ? 'Jardins Mônaco' : "";
-        // }
-
-
+        currentIntersect = intersects[0].object
+        const clickableitemName = currentIntersect.name.substring(2);
+        let resultTest = clickableitemName.replace(/_/g, " ");
+        nome.innerHTML = (this != `${resultTest}`) ? `${resultTest}` : "";
     }
     else {
         if (currentIntersect) {
-            // console.log(currentIntersect)
             // console.log('mouse leave');
             document.getElementById('body').style.cursor = 'grab';
-            if (!isMobile) {
-                // TWEEN.remove(cursorAnim);
-
-                
-            }
 
             if (controls.enabled) {
                 animarTextoOut()
@@ -1393,13 +1030,6 @@ function onMouseMove(event) {
     }
 }
 
-// function onMouseWheel(event) {
-//     if(controls.enabled){
-//         camera.position.y += event.deltaY / 18;
-//         // camera.position.clampScalar(-40, 180.0);
-//     }
-// }
-
 function onMouseDown() {
     document.getElementById('body').style.cursor = 'grabbing';    
 }
@@ -1407,325 +1037,64 @@ function onMouseDown() {
 function onMouseUp() {
     document.getElementById('body').style.cursor = 'grab';
 
-    // if (document.body.contains(instructions) && instructions.classList.contains('visible')){
-    //     instructions.parentNode.removeChild(instructions);
-    //     dragIcon.loop = false;
-    // }
 }
-
 
 //////////////////////////////////////////////////
 //// CLICK ON TARGET
 /////////////////////////////////////////////////
-function onTargetClick(event) {
+function onTargetClick() {
 
-    if (currentIntersect) {
-
+    if (currentIntersect && document.getElementById('body').style.cursor != 'grabbing' ) {
         cameraTurnAndLook(currentIntersect);
-        // controls.autoRotate = true;
-        
-        // if (currentIntersect.object.name === 'p_verona') {
-        //     // console.log('click on object 2')
-        //     cameraTurnAndLook(currentIntersect.object);
-        //     // nome.innerHTML = "Jardins Verona";
-        //     controls.enabled = false;
-        // }
-
-        new TWEEN.Tween(sprite.scale).to({
-            x: 40,
-            y: 40,
-            z: 1
-        }, 800)
-        .easing(TWEEN.Easing.Cubic.InOut).start();
-    }
-
-    if (buttonContinue.classList.contains('visible')){
-        continueExploration();
+        nomeDiv.parentElement.style.opacity = '0';
     }
 }
-
-/////////////////////////////////////////////////////////////////////////
-///// CHANGE IMAGE ON CLICK
-/////////////////////////////////////////////////////////////////////////
-// function changeImage(target){
-//     // console.log(target);
-//     if(target.name == "p_Utility") {
-//         imageUrl = 'textures/condominios/italia-portaria.jpg';
-        
-//      }else if (target.name == "p_verona"){
-//         var imageUrl = 'textures/condominios/verona.jpg';
-
-//     } else if (target.name == "p_valencia"){
-//         var imageUrl = 'textures/condominios/valencia.jpg';
-  
-//     }
-
-//     if(imageUrl != undefined){
-//         loadImage(imageUrl, (ratio) => {
-//             if (ratio == -1) {
-//             // Ratio not computable. Let's make this bar an undefined one.
-//             // Remember that since ratio isn't computable, calling this function
-//             // makes no further sense, so it won't be called again.
-//             progressBar.removeAttribute('value');
-//             } else {
-//             // We have progress ratio; update the bar.
-//             progressBar.value = ratio;
-//             progressBar.classList.add('show');
-//             }
-//         })
-//         .then(imgSrc => {
-//             // Loading successfuly complete; set the image and probably do other stuff.
-//             imgContainer.src = imgSrc;
-//             // buttonViewImage.classList.add('visible');
-//             progressBar.classList.remove('show');
-//         }, xhr => {
-//             // An error occured. We have the XHR object to see what happened.
-//         });
-//     }
-// }
-
-
 
 /////////////////////////////////////////////////
 //// CAMERA LOOT AT TURN
 /////////////////////////////////////////////////
-
+const tlCameraLook = gsap.timeline()
 function cameraTurnAndLook(target) {
-    clickEfect.play();
-    animarTexto();
-    controls.enabled = false;
-    header.classList.add('up');
-    header.classList.remove('down');
-    controls.minDistance = 0;
-
-    // TWEEN.remove(this);
-    // for (var i = 0; i < pickableMeshes.length; i++){
-    //     new TWEEN.Tween(pickableMeshes[i].scale).to({x: 0, y: 0, z:0}, 500).easing(TWEEN.Easing.Circular.Out).start();
-
-    // }  
-
-    controls.maxPolarAngle = Infinity;
-
-
-    new TWEEN.Tween(controls.target).to({
-        x: target.position.x,
-        y: target.position.y +1.5,
-        z: target.position.z
-    }, 1000)
-        .easing(TWEEN.Easing.Quadratic.InOut).start().onUpdate(function () {
-            
-        }).onComplete(function () {
-            TWEEN.remove(this);
-        });
-
-    new TWEEN.Tween(camera.position).to({
-        x: target.position.x + Math.PI *2 +4,
-        y: target.position.y + 1.5,
-        z: target.position.z - 4
+    // controls.enabled = false;
+        
+    if (target.name == "p_Shaders"){
+        tlCameraLook
+        .to(controls.target, { x: 29, y: 3, z: 18, duration: 2, ease: 'power1.inOut' })
+        .to(camera.position, { x: 28, y: 4, z: 13, duration: 3, ease: 'power2.inOut'}, "-=2")
     }
-    , 2000)
-    .easing(TWEEN.Easing.Quartic.InOut).start().onUpdate(function () {
-        camera.lookAt(controls.target);
-    }).onComplete(function () {
-        camera.lookAt(target.position)
-        TWEEN.remove(this);
-        // changeImage(target);
-        buttonContinue.classList.add('visible');
-    });     
-        
-}
 
-//////////////////////////////////////////////////
-//// CAMERA TRAVEL
-/////////////////////////////////////////////////
-// // let teleport = false;
-// function cameraTurnTravel(target) {
-//     clickEfect.play();
-//     header.classList.add('up');
-//     header.classList.remove('down');
-//     buttonContinue.classList.add('visible');
+    if (target.name == "p_3d_Models"){
+        tlCameraLook
+        .to(controls.target, { x: 24, y: 3, z: 18, duration: 2, ease: 'power1.inOut' })
+        .to(camera.position, { x: 22, y: 3.3, z: 13.2, duration: 3, ease: 'power2.inOut'}, "-=2")
+    }
 
-//     // takeRide = target.name;
+    if (target.name == "p_Windland_Project"){
+        tlCameraLook
+        .to(controls.target, { x: 29.11, y: 3.3, z: -4.2, duration: 2, ease: 'power1.inOut' })
+        .to(camera.position, { x: 27.7, y: 5.11, z: 9.9, duration: 3, ease: 'power2.inOut', onUpdate: ()=> {camera.lookAt(controls.target)}}, "-=2")
+    }
 
-//     new TWEEN.Tween(controls.target).to({
-//         x: target.parent.position.x,
-//         y: 5,
-//         z: target.parent.position.z
-//     }, 800)
-//     .easing(TWEEN.Easing.Quartic.InOut)
-//     .start()
-//     .onStart(function(){
-//         new TWEEN.Tween({progress: 0})
-//         .to({ progress: 1}, 2000)
-//         .easing(TWEEN.Easing.Quartic.InOut)
-//         .start()
-//         .delay(200)
-//         .onStart(function(){
-//             // teleport = true;        
-//         })
-//         .onUpdate(function(value){
-//         })
-//         .onComplete(function () {
-//             TWEEN.remove(this);
-//         });
-//     })
-//     .onUpdate(function () {
-//         // console.log(target)
-//         camera.lookAt(controls.target)
-//     }).onComplete(function () {
-//         TWEEN.remove(this);
+    if (target.name == "p_Real_Estate_Project"){
+        tlCameraLook
+        .to(controls.target, { x: 23.4, y: 3.3, z: -4.3, duration: 2, ease: 'power1.inOut' })
+        .to(camera.position, { x: 23.7, y: 3.3, z: 3.2, duration: 3, ease: 'power2.inOut', onUpdate: ()=> {camera.lookAt(controls.target)}}, "-=2")
+    }
 
-        
+    if (target.name == "p_DNA_Project"){
+        tlCameraLook
+        .to(controls.target, { x: 18.9, y: 3.3, z: -5.5, duration: 2, ease: 'power1.inOut' })
+        .to(camera.position, { x: 19.9, y: 3.3, z: 3.6, duration: 3, ease: 'power2.inOut', onUpdate: ()=> {camera.lookAt(controls.target)}}, "-=2")
+    }
 
-//     });
-    
-// }
+    if (target.name == "p_Threejs_Favorites"){
+        tlCameraLook
+        .to(controls.target, { x: -30.1, y: 3.5, z: 7.8, duration: 2, ease: 'power1.inOut' })
+        .to(camera.position, { x: -17.06, y: 3.5, z: 8.2, duration: 3, ease: 'power2.inOut', onUpdate: ()=> {camera.lookAt(controls.target)}}, "-=2")
+    }
 
-//////////////////////////////////////////////////
-//// CIRCULAR OVERLAY FOR CONDO IMAGE
-/////////////////////////////////////////////////
-
-// const textureImage = textureLoader.load('textures/circle.jpg')
-// textureImage.encoding = THREE.sRGBEncoding;
-// const imageMaterial = new THREE.SpriteMaterial({color: 0xFFFFFF, transparent: true, fog: true, alphaMap: textureImage});
-
-// let spriteCircular = new THREE.Sprite( imageMaterial );
-// spriteCircular.center.set( 0.5, 0.5 );
-// spriteCircular.scale.set( 0, 0, 1 );
-// sceneOrtho.add( spriteCircular );
-// spriteCircular.position.set( 0, (!isMobile) ? height * 0.18 : height * 0.1, 1 );
-
-//////////////////////////////////////////////////
-//// DISPLAY CONDO IMAGE
-/////////////////////////////////////////////////
-
-// function displayImage (){
-    
-//     nome.classList.add('opened');
-//     // buttonViewImage.classList.remove('visible');
-//     buttonContinue.classList.remove('visible');
-
-//     new TWEEN.Tween({x: 5, y: 5}).to({x: width*3, y: width*3}, 1000)
-//     .easing(TWEEN.Easing.Exponential.InOut)
-//     .start()
-//     .onStart(function(){
-//         spriteCircular.material.opacity = 1;
-//     })
-//     .onUpdate(function (value) {
-//         spriteCircular.scale.set(value.x, value.y)
-//     }).onComplete(function () {
-//         TWEEN.remove(this);
-//         condoImage.classList.add('visible');
-//         zoom();
-//         displayImageMode = true;
-//         // buttonVoltar.classList.add('visible');
-//     });
-// }
-
-//////////////////////////////////////////////////
-//// HIDE CONDO IMAGE
-/////////////////////////////////////////////////
-// function hideImage(){
-//     animate();
-//     elem.style.display = "none";
-//     nome.classList.remove('opened');
-//     condoImage.classList.remove('visible');
-//     imgContainer.removeAttribute('src');
-//     new TWEEN.Tween({x: width*3, y: width*3}).to({x: 0, y: 0}, 400)
-//     .easing(TWEEN.Easing.Quartic.Out)
-//     .start()
-//     .onUpdate(function (value) {
-//         spriteCircular.scale.set(value.x, value.y)
-//     }).onComplete(function () {
-//         TWEEN.remove(this);
-//         spriteCircular.material.opacity = 0;
-//     });
-// }
-
-//////////////////////////////////////////////////
-//// TELEPORT TRANSITION
-/////////////////////////////////////////////////
-
-// function createFinalScene(){
-//     textureMapView = new THREE.WebGLRenderTarget(width*2, height*2, {
-//         format: THREE.RGBAFormat,
-//         minFilter: THREE.LinearFilter,
-//         magFilter: THREE.LinearFilter,
-//         anisotropy: 4,
-//     })
-
-//     textureRideView = new THREE.WebGLRenderTarget(width*2, height*2, {
-//         format: THREE.RGBAFormat,
-//         minFilter: THREE.LinearFilter,
-//         magFilter: THREE.LinearFilter,
-//         anisotropy: 4,
-//     })
-
-//     materialSceneFinal = new THREE.ShaderMaterial(
-//         {
-//             uniforms : {
-//                 progress: {value : 0},
-//                 sceneMap: { value: null},
-//                 sceneRide: { value: null },
-//             },
-//             vertexShader: tlVertShader,
-//             fragmentShader: tlFragShader
-//         }
-//     )
-
-//     let geoFinal = new THREE.PlaneBufferGeometry(1,1)
-//     let meshFinal = new THREE.Mesh(geoFinal, materialSceneFinal)  
-//     sceneFinal.add(meshFinal);
-// }
-
-// createFinalScene();
-
-//////////////////////////////////////////////////
-//// BACK TO MAP
-/////////////////////////////////////////////////
-function backToMap() {
-    displayImageMode = false;
-    // hideImage();
-    clickEfect.play();
-    controls.autoRotate = false;
-    controls.mapMode = false;
-    exitMapMode();
-
-    buttonContinue.classList.remove('visible');
-    // buttonViewImage.classList.remove('visible');
-    buttonVoltar.classList.remove('visible');
-
-    new TWEEN.Tween(elem.style).to({
-        opacity: 0
-    }, 700)
-        .easing(TWEEN.Easing.Circular.Out).start().onComplete(function () {
-            TWEEN.remove(this);
-
-        }).onStart(function () {
-            // for (var i = 0; i < pickableMeshes.length; i++){
-            //     new TWEEN.Tween(pickableMeshes[i].scale).to({x: 1, y: 1, z:1}).easing(TWEEN.Easing.Circular.Out).start();
-            //     // pickableMeshes[i].scale.set(1,1,1);
-            // }  
-            new TWEEN.Tween(camera.position).to({
-                x: 20,
-                y: 15,
-                z: -40
-            }, 2000)
-                .easing(TWEEN.Easing.Exponential.InOut).start().onUpdate(function () {
-                    camera.lookAt(controls.target);
-                }).onComplete(function () {
-                    camera.lookAt(controls.target)
-                    elem.style.display = "none";
-                    controls.enabled = true;
-                    // controls.enableRotate = true;
-                    TWEEN.remove(this);
-                    header.classList.remove('up');
-                    header.classList.add('down');
-                    controls.maxPolarAngle = (Math.PI / 2.4);
-                });
-
-        });
-
+    // console.log(target.name)
+    buttonContinue.classList.add('visible');    
 }
 
 //////////////////////////////////////////////////
@@ -1733,45 +1102,18 @@ function backToMap() {
 /////////////////////////////////////////////////
 function continueExploration() {
     clickEfect.play();
-    controls.autoRotate = true;
+    // controls.autoRotate = true;
 
-        buttonContinue.classList.remove('visible');
-        // buttonViewImage.classList.remove('visible');
-        if (imgContainer.hasAttribute('src')) imgContainer.removeAttribute('src');
-        animarTextoOut();
-        // xhr.abort();
-        progressBar.value = 0;
-        progressBar.classList.remove('show');
+    buttonContinue.classList.remove('visible');
+    nomeDiv.parentElement.style.opacity = '1';
+    nomeDiv.style.opacity = '0';
 
-        new TWEEN.Tween(controls.target).to({
-            x: 0,
-            y: 2,
-            z: 0
-        }, 2000)
-            .easing(TWEEN.Easing.Quartic.InOut).start().onUpdate(function () {
-                
-            }).onComplete(function () {
-                TWEEN.remove(this);
-            });
-
-        new TWEEN.Tween(camera.position).to({
-            x: 20,
-            y: 15,
-            z: -40
-        }, 2000)
-        .easing(TWEEN.Easing.Exponential.InOut).start().onUpdate(function () {
-            camera.lookAt(controls.target);
-        }).onComplete(function () {
-            camera.lookAt(controls.target)
-            elem.style.display = "none";
-            controls.enabled = true;
-            // controls.enableRotate = true;
-            header.classList.remove('up');
-            header.classList.add('down');
-            TWEEN.remove(this);
-            controls.maxPolarAngle = (Math.PI / 2.4);
-            controls.minDistance = 15;
-        });
+    // buttonViewImage.classList.remove('visible');
+    // animarTextoOut();
+    
+    tlCameraLook
+    .to(camera.position, {x: camera.position.x, y: 3.4, z: (controls.target.z >0) ? camera.position.z-6 : camera.position.z+6, duration: 2, ease: 'power1.inOut' })
+    .to(controls.target, { x: controls.target.x, y: controls.target.y, z: controls.target.z, duration: 2, ease: 'power1.inOut', onComplete: enableControls }, "-=2");
 
 }
 
@@ -1790,575 +1132,60 @@ function menuHamburguerAtivado() {
     }
 };
 
-
 //////////////////////////////////////////////////
-//// SET MAP ICON REAL IN TIME
+//// TEXT ANIMATIONS
 /////////////////////////////////////////////////
 
-// var currentParam = "camera";
-
-// function setMapIcon(param){
-//     if (param != currentParam){
-//         document.getElementById("map-icon").src = "./icons/" + `${param}` + ".svg";
-//         currentParam = param;
-//     }
-// }
-
-//////////////////////////////////////////////////
-//// NIGHT MODE
-/////////////////////////////////////////////////
-// mapModeButton();
-function mapModeButton() {
-    if (mapMode == false)
-    {
-        clickEfect.play();
-        // renderer.shadowMap.autoUpdate = false;
-        document.getElementById("map-icon").src = "./icons/camera.svg";
-        document.getElementById("map-icon").classList.add('invert');
-        musicButton.classList.add('invert');
-        document.getElementById("menu-list").classList.add('invert');
-        document.getElementById("menu_hamburguer").classList.add('invert');
-        cloudsMaterial.color.setHex(0x000000);
-        // light.intensity = 0.5;
-        light.color.set(0x1eff)
-        // light.color.set(0x606ca)
-        ambient.color.set(0xff)
-        light.position.set(-22, 3, -70);
-        // ambient.intensity = 0.08;ƒ
-        // unrealBloomPass.strength = 2;
-        // unrealBloomPass.radius = 0.1;
-        // unrealBloomPass.threshold = 0.2;
-        scene.fog.color.set(0x000005);
-        scene.background.set(0x000005);
-        header.style.color = "#fff";
-        mapMode = true;
-        composer.insertPass(unrealBloomPass,1);
-        composer.removePass( bokehPass );
-        composer.removePass( gammaCorrection );
-
-        new TWEEN.Tween({intensity: 0, ambient: 0}).to({
-            intensity: 0.4,
-            ambient: 0.08,
-        }, 3000)
-            .easing(TWEEN.Easing.Exponential.InOut).start().onUpdate(function (value) {
-                // console.log(value);
-                light.intensity = value.intensity;
-                ambient.intensity = value.ambient;
-            }).onComplete(function () {
-                TWEEN.remove(this);
-            });
-    } else{
-        exitMapMode();
-    }
-};
-
-
-
-//////////////////////////////////////////////////
-//// MAP MODE
-/////////////////////////////////////////////////
-
-// function mapModeButton() {
-//     if (mapMode == false)
-//     {
-//         controls.mapMode = true;
-//         controls.enabled = false;
-//         clickEfect.play();
-//         mapMode = true;
-//         // renderer.shadowMap.autoUpdate = false;
-//         document.getElementById("map-icon").src = "./icons/camera.svg";
-
-//         new TWEEN.Tween(camera.position).to({
-//             x: camera.position.x,
-//             y: 65,
-//             z: camera.position.z
-//         }, 2000)
-//             .easing(TWEEN.Easing.Exponential.InOut).start().onUpdate(function () {
-//                 camera.lookAt(controls.target);
-//             }).onComplete(function () {
-//                 camera.lookAt(controls.target);
-//                 // controls.autoRotate = false;
-//                 controls.enabled = true;
-//                 TWEEN.remove(this);
-//                 camera.translateZ(0);
-//                 // spriteShopping.scale.set(spriteShopping.scale.x *4,spriteShopping.scale.y *4,spriteShopping.scale.z *4);
-//             });
-//     } else{
-//         exitMapMode();
-//         // renderer.shadowMap.autoUpdate = true;
-//         // renderer.shadowMap.needsUpdate = true;
-//     }
-// };
-
-//////////////////////////////////////////////////
-//// EXIT MAP MODE
-/////////////////////////////////////////////////
-
-function exitMapMode() {
-    cloudsMaterial.color.setHex(0xffffff);
-    light.intensity = 5.8;
-    light.color.set(0xd7af87)
-    ambient.color.set(0x7e80a2)
-    light.position.set(46, 1.9, 36);
-    ambient.intensity = 1.9;
-    // unrealBloomPass.strength = 0.5
-    // unrealBloomPass.radius = 0.07
-    // unrealBloomPass.threshold = 0.99
-    scene.background.set(0x90c1e8);
-    scene.fog.color.set(0x80b6e8); 
-    mapMode = false;
-    header.style.color = "#000";
-    document.getElementById("map-icon").classList.remove('invert');
-    musicButton.classList.remove('invert');
-    document.getElementById("menu_hamburguer").classList.remove('invert');
-    document.getElementById("menu-list").classList.remove('invert');
-    composer.removePass( unrealBloomPass );
-    composer.insertPass(bokehPass,1);
-    composer.insertPass( gammaCorrection,2 );
-}
-
-//////////////////////////////////////////////////
-//// TITLE ANIMATIONS
-/////////////////////////////////////////////////
-
-var textoEntra = new TWEEN.Tween(elem.style).to({
-    opacity: 1, translateY: -70
-    }, 1000).delay(200)
-    .easing(TWEEN.Easing.Quadratic.In).onStart(function () {
-        elem.style.display = "flex";
-    }).onUpdate(function () {
-        //
-    }).onComplete(function () {
-        TWEEN.remove(this);
-    });
-
-var textoSai = new TWEEN.Tween(elem.style).to({
-    opacity: 0
-    }, 1000)
-    .easing(TWEEN.Easing.Quadratic.In).onStart(function () {
-    }).onComplete(function () {
-        TWEEN.remove(this);
-        elem.style.display = "none";
-    })
-
+let nomeDiv = document.getElementById("nome")   
 function animarTexto() {
-    textoEntra.start();
-    textoSai.stop();
-    new TWEEN.Tween(sprite.scale).to({
-        x: 180,
-        y: 180,
-        z: 1
-    }, 600)
-        .easing(TWEEN.Easing.Cubic.InOut).start().onComplete(function () {
-            TWEEN.remove(this);
-        });
+    gsap.to(nomeDiv, {yPercent: -50, duration: 0.8, opacity: 1, ease: 'power4.easeInOut'})
 }
 
 function animarTextoOut() {
-    textoEntra.stop();
-    textoSai.start();
-    new TWEEN.Tween(sprite.scale).to({
-        x: 40,
-        y: 40,
-        z: 1
-    }, 800)
-        .easing(TWEEN.Easing.Cubic.InOut).start().onComplete(function () {
-            TWEEN.remove(this);
-        });
-
+    gsap.to(nomeDiv, {yPercent: 0, duration: 0.8, opacity: 0, ease: 'power3.easeIn'})
 }
-
-//////////////////////////////////////////////////
-//// INTERFACE ICONS ANIMATIONS
-/////////////////////////////////////////////////
-
-// var tapIcon = bodymovin.loadAnimation({
-
-//     container: document.getElementById('tap-container'),
-//     path: 'icons/tap.json',
-//     renderer: 'svg',
-//     loop: true,
-//     autoplay: true,
-// });
-
-// var dragIcon = bodymovin.loadAnimation({
-
-//     container: document.getElementById('drag-container'),
-//     path: 'icons/drag-right.json',
-//     renderer: 'svg',
-//     loop: true,
-//     autoplay: false,
-// });
 
 //////////////////////////////////////////////////
 //// EXPLORE FIRST CAMERA ANIMATION
 /////////////////////////////////////////////////
-
+const tlExplore = gsap.timeline();
 function exploreAnimation() {
 
-    // if(tapIcon) tapIcon.loop = false;
-    playMusic();
+    // playMusic();
     buttonExplore.classList.remove('ended');
 
     if (debug == false) {
         introDiv.classList.add('ended');
-
-        // remove e div loader
-        new TWEEN.Tween(overlayMaterial)
-            .to({ opacity: 0 }, 1000)
-            .easing(TWEEN.Easing.Quartic.InOut)
-            .start()
-            .onComplete(function () {
-                scene.remove(overlay);
-                TWEEN.remove(this);
-            });
-
-        // Anima o Target
-        new TWEEN.Tween(controls.target).to({
-            x: 0,
-            y: 2,
-            z: 0
-        }, 7200)
-            .easing(TWEEN.Easing.Quartic.InOut).start().onUpdate(function (value) {
-                controls.target.set(value.x, value.y, value.z)
-            }).onComplete(function () {
-                header.style.display = 'flex';
-                header.classList.add('down');
-                introDiv.parentNode.removeChild(introDiv);
-                loadingBarElement.parentNode.removeChild(loadingBarElement);
-                
-                
-                TWEEN.remove(this);
-
-                // animate the blur effect
-          
-
-            });
-            
         
-            
+        tlExplore
+        .to(controls.target, { x: 10, y: 3.4, z: 14, duration: 3, ease: 'power1.inOut' })
+        .to(camera.position, {x: -2, y: 3.4, z: 16, duration: 3, ease: 'power1.inOut'}, "-=3")
 
-        // Anima a camera
-        new TWEEN.Tween(camera.position).to({
-            x: 20,
-            y: 15,
-            z: -40
-        }, 10000)
-            .easing(TWEEN.Easing.Quartic.InOut).start()
-            .onUpdate(function (value) {
-                camera.position.set(value.x, value.y, value.z)
-                camera.lookAt(controls.target); // atualiza a posicao do target para evitar engasgos
-            })
-            .onStart(function () {
-                
-            })
-            .onComplete(function () {
-                camera.lookAt(controls.target); //olha para o target
-                controls.enabled = true;
-                canAnimate = true;
-                // instructions.classList.add('visible');
-                
-                // dragIcon.play();
-                TWEEN.remove(this);
-                controls.autoRotate = true;
-
-                controls.minDistance = 15;
-                controls.maxDistance = 50;
-                controls.maxPolarAngle = (Math.PI / 2.4);
-                controls.maxAzimuthAngle = 25
-
-                new TWEEN.Tween({value: 0}).to({
-                    value: 30
-                }, 4000)
-                    .easing(TWEEN.Easing.Quartic.InOut).start()
-                    .onUpdate(function (value) {
-                        // console.log(value)
-                        bokehPass.uniforms[ "aperture" ].value = value.value * 0.00001
-                    })
-                    .onStart(function () {
-                        composer.insertPass(bokehPass,1);
-                        // composer.removePass( unrealBloomPass );
-
-                        // console.log(composer.passes)
-                        bokehPass.needsSwap = true;
-                    })
-                    .onComplete(function () {
-                        // header.style.display = 'flex';
-                        // header.classList.add('down');
-                        // introDiv.parentNode.removeChild(introDiv);
-                        // loadingBarElement.parentNode.removeChild(loadingBarElement);
-                        // composer.insertPass(bokehPass,2 );
-                        // console.log(composer.passes)
-                        // bokehPass.needsSwap = true;
-                        TWEEN.remove(this);
-                    });
-                
-            });
-       
+        .to(camera.position, {x: 5.5, y: 3.4, z: 13.95, duration: 4, ease: 'power3.inOut' })
+        .to(controls.target, { x: 10, y: 3, z: 8.8, duration: 4, ease: 'power3.inOut', onComplete: enableControls }, "-=4");
     }
 
-    // aviao.position.set(-8, 5, -9);
-    // helicoptero.position.set(-6, 4, -8);
 }
 
-//////////////////////////////////////////////////
-//// PARTICLES SYSTEM
-///////////////////////////////////////////////////
-
-// const particlesCount = 120
-// const positions = new Float32Array(particlesCount * 3)
-
-// for(let i = 0; i < particlesCount; i++)
-// {
-//     positions[i * 3 + 0] = (Math.random() - 0.5) * 90
-//     positions[i * 3 + 1] = Math.random() *9
-//     positions[i * 3 + 2] = (Math.random() - 0.5) * 40
-// }
-// const particlesGeometry = new THREE.BufferGeometry()
-// particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-
-// const particlesMaterial = new THREE.PointsMaterial({
-//     color: 0x9ac4d4,
-//     sizeAttenuation: true,
-//     size: 0.09
-// })
-
-// const particles = new THREE.Points(particlesGeometry, particlesMaterial)
-// particles.name = 'particles';
-// scene.add(particles)
-// let vertices = [];
-// let geometry = new THREE.BufferGeometry();
-// const particleCount = 400;
-// var particles = [];
-// const spritePartitle = new THREE.TextureLoader().load( './textures/particle.png' );
-
-// for ( let i = 0; i < particleCount; i ++ ) {
-
-//     const x = 40 * Math.random() - 20;
-//     const y = 20 * Math.random() - 10;
-//     const z = 40 * Math.random() - 20;
-//     vertices.push( x, y, z );
-// }
-
-// geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
-
-// let materialParticle = new THREE.PointsMaterial( { size: 1, sizeAttenuation: true} );
-// materialParticle.color.set( new THREE.Color(0xffffff) );
-
-// for (var i = 0; i < particleCount; i++) {
-    
-//     particles[i] = new THREE.Points( geometry, materialParticle );
-//     // particles[i] = new THREE.Mesh( particleGeometry, particleMaterial );
-
-//     //randomize positions
-//     particles[i].position.x = Math.random() * window.innerWidth * 2 - window.innerWidth;;
-//     particles[i].position.y = Math.random() * window.innerHeight * 2 - window.innerHeight;
-//     particles[i].position.z = Math.random() * window.innerWidth * 2 - window.innerWidth;
-
-//     particles[i]. direction = {
-//         x: Math.random(),
-//         y: Math.random(),
-//     }
-
-//     scene.add(particles[i]);
-// }
-
-//////////////////////////////////////////////////
-//// MOVE ALONG SPLINE
-/////////////////////////////////////////////////
-
-// const mainRoad = [
-//     [39.30022430419922, 276.9957275390625, 0.0] ,
-//     [33.64874267578125, 268.2709655761719, 0.0] ,
-//     [28.174224853515625, 259.7655944824219, 0.0] ,
-//     [24.469337463378906, 253.45420837402344, 0.0] ,
-//     [20.614673614501953, 246.6876678466797, 0.0] ,
-//     [13.492613792419434, 233.17562866210938, 0.0] ,
-//     [6.423304557800293, 219.69253540039062, 0.0] ,
-//     [3.1489052772521973, 213.244384765625, 0.0] ,
-//     [0.4007476568222046, 207.6870574951172, 0.0] ,
-//     [-0.8799116611480713, 204.00283813476562, 0.0] ,
-//     [-1.9245303869247437, 200.51609802246094, 0.0] ,
-//     [-2.076241970062256, 197.1312255859375, 0.0] ,
-//     [-2.0723249912261963, 193.5623779296875, 0.0] ,
-//     [-1.405028223991394, 188.05198669433594, 0.0] ,
-//     [-0.6277146935462952, 182.36795043945312, 0.0] ,
-//     [0.5863856673240662, 176.88845825195312, 0.0] ,
-//     [1.768083930015564, 171.70579528808594, 0.0] ,
-//     [2.1889736652374268, 169.2866973876953, 0.0] ,
-//     [2.5614869594573975, 167.0520477294922, 0.0] ,
-//     [3.211047410964966, 163.89779663085938, 0.0] ,
-//     [3.844454526901245, 160.81375122070312, 0.0] ,
-//     [4.039285659790039, 159.35147094726562, 0.0] ,
-//     [4.2353034019470215, 157.57080078125, 0.0] ,
-//     [4.881760597229004, 150.98451232910156, 0.0] ,
-//     [5.563279151916504, 143.8057098388672, 0.0] ,
-//     [6.144970893859863, 135.50747680664062, 0.0] ,
-//     [6.728176116943359, 127.15615844726562, 0.0] ,
-//     [7.426346302032471, 119.393310546875, 0.0] ,
-//     [8.015249252319336, 112.26436614990234, 0.0] ,
-//     [7.396510124206543, 110.88609313964844, 0.0] ,
-//     [6.7424211502075195, 110.02021026611328, 0.0] ,
-//     [6.942468643188477, 108.52764892578125, 0.0] ,
-//     [7.142681121826172, 107.02630615234375, 0.0] ,
-//     [6.490403175354004, 106.06385040283203, 0.0] ,
-//     [5.666007041931152, 105.01490783691406, 0.0] ,
-//     [3.9729154109954834, 102.56217956542969, 0.0] ,
-//     [2.156219482421875, 99.94255828857422, 0.0] ,
-//     [-0.0278165340423584, 97.05781555175781, 0.0] ,
-//     [-2.5201337337493896, 93.80934143066406, 0.0] ,
-//     [-7.7279205322265625, 87.18856811523438, 0.0] ,
-//     [-12.90706729888916, 80.57099914550781, 0.0] ,
-//     [-15.084346771240234, 77.35771942138672, 0.0] ,
-//     [-16.913389205932617, 74.4356918334961, 0.0] ,
-//     [-18.261940002441406, 71.02177429199219, 0.0] ,
-//     [-19.832311630249023, 66.91744232177734, 0.0] ,
-//     [-24.101381301879883, 56.40082550048828, 0.0] ,
-//     [-28.373043060302734, 46.01555633544922, 0.0] ,
-//     [-29.971961975097656, 43.35600662231445, 0.0] ,
-//     [-31.273611068725586, 41.46550369262695, 0.0] ,
-//     [-32.27533721923828, 39.53972625732422, 0.0] ,
-//     [-33.21403121948242, 37.59868240356445, 0.0] ,
-//     [-33.822288513183594, 35.54020690917969, 0.0] ,
-//     [-34.379310607910156, 33.48250198364258, 0.0] ,
-//     [-34.754390716552734, 31.54996109008789, 0.0] ,
-//     [-35.05633544921875, 29.529787063598633, 0.0] ,
-//     [-34.80888366699219, 26.50812530517578, 0.0] ,
-//     [-34.403602600097656, 23.09564781188965, 0.0] ,
-//     [-32.96936798095703, 16.776473999023438, 0.0] ,
-//     [-31.44827651977539, 10.285364151000977, 0.0] ,
-//     [-30.08757781982422, 4.981601715087891, 0.0] ,
-//     [-28.76702880859375, -0.1274758130311966, 0.0] ,
-//     [-27.687562942504883, -4.477056980133057, 0.0] ,
-//     [-26.67332649230957, -8.631962776184082, 0.0] ,
-//     [-26.070293426513672, -11.599613189697266, 0.0] ,
-//     [-25.543642044067383, -14.478448867797852, 0.0] ,
-//     [-25.369619369506836, -17.6563777923584, 0.0] ,
-//     [-25.31757164001465, -21.005390167236328, 0.0] ,
-//     [-26.13265609741211, -25.766136169433594, 0.0] ,
-//     [-26.969179153442383, -30.550731658935547, 0.0] ,
-//     [-27.152950286865234, -34.162052154541016, 0.0] ,
-//     [-27.204038619995117, -37.79267501831055, 0.0] ,
-//     [-26.581066131591797, -42.78957748413086, 0.0] ,
-//     [-25.901248931884766, -47.92850875854492, 0.0] ,
-//     [-25.32701873779297, -53.1214599609375, 0.0] ,
-//     [-24.772212982177734, -58.309471130371094, 0.0] ,
-//     [-24.306072235107422, -63.39410400390625, 0.0] ,
-//     [-23.80496597290039, -68.68960571289062, 0.0] ,
-//     [-22.865554809570312, -76.19721984863281, 0.0] ,
-//     [-21.920780181884766, -83.5586929321289, 0.0] ,
-//     [-21.360681533813477, -87.24653625488281, 0.0] ,
-//     [-20.861732482910156, -90.57963562011719, 0.0] ,
-//     [-20.589595794677734, -94.03901672363281, 0.0] ,
-//     [-20.31688117980957, -97.44127655029297, 0.0] ,
-//     [-19.811532974243164, -100.14617919921875, 0.0] ,
-//     [-19.249893188476562, -102.79264068603516, 0.0] ,
-//     [-18.357982635498047, -105.55204772949219, 0.0] ,
-//     [-17.40191650390625, -108.38772583007812, 0.0] ,
-//     [-16.134578704833984, -111.87315368652344, 0.0] ,
-//     [-14.8628568649292, -115.41205596923828, 0.0] ,
-//     [-13.858556747436523, -118.83587646484375, 0.0] ,
-//     [-12.959501266479492, -122.39697265625, 0.0] ,
-//     [-12.845479965209961, -127.44601440429688, 0.0] ,
-//     [-12.91529655456543, -133.37591552734375, 0.0] ,
-//     [-14.038433074951172, -146.62655639648438, 0.0] ,
-//     [-15.201496124267578, -160.024658203125, 0.0] ,
-//     [-15.710495948791504, -167.5768585205078, 0.0] ,
-//     [-16.175945281982422, -174.72940063476562, 0.0] ,
-//     [-16.859962463378906, -183.73126220703125, 0.0] ,
-//     [-17.534378051757812, -192.42376708984375, 0.0] ,
-//     [-17.89420509338379, -196.17294311523438, 0.0] ,
-//     [-18.229618072509766, -199.59152221679688, 0.0] ,
-//     [-18.635507583618164, -204.64743041992188, 0.0] ,
-//     [-19.078609466552734, -209.9652557373047, 0.0] ,
-//     [-19.823366165161133, -216.26519775390625, 0.0] ,
-//     [-20.574115753173828, -222.57061767578125, 0.0] ,
-//     [-21.083087921142578, -227.94900512695312, 0.0] ,
-//     [-21.56756019592285, -233.04739379882812, 0.0] ,
-//     [-22.04880714416504, -236.27279663085938, 0.0] ,
-//     [-22.529733657836914, -239.3109130859375, 0.0] ,
-// ]
-
-// let fraction = 0;
-// const mainRoadNormalized = []
-
-// // Normalize Blender Curve Positions
-// for (var i = 0; i < mainRoad.length; i++) {
-//     var x = mainRoad[i][0];
-//     var y = mainRoad[i][1]
-//     var z = mainRoad[i][2];
-//     mainRoad[i] = new THREE.Vector3(x, z, -y);
-//     mainRoadNormalized[i] = new THREE.Vector2(mainRoad[i].x, mainRoad[i].z)
-//   }
-
-// const shapePoints = new THREE.SplineCurve(mainRoadNormalized);
-
-
-// function takeRides(){
-
-//     if(takeRide === 'Car'){
-//         carro.add(cameraRide);
-//         controls.enabled = false;
-//         cameraRide.lookAt(carro.position);
-//         cameraRide.position.set(Math.PI*0.5 -2, 1.5, -Math.PI *2.5 +2);
-
-//     }else if(takeRide === 'Helicoptero'){
-//         helicoptero.add(cameraRide);
-//         controls.enabled = false;
-//         cameraRide.lookAt(helicoptero.position);
-//         cameraRide.position.set(Math.PI*0.5 -16, 2, -Math.PI *2.5 +4);
-//     }
-// }
-
-// function carAnimation(){
-//      // Car animation
-//      const newPosition = shapePoints.getPoint(fraction);
-//      const tangent = shapePoints.getTangent(fraction).normalize();
-//      carro.position.set(newPosition.x -0.75, 0.3, newPosition.y);
-//      carro.rotation.set(0, tangent.x, 0)
-     
-//      fraction +=0.0002;
-     
-//      if (fraction > 1) {
-//          fraction = 0;
-//      }    
-// }
-
-// function sceneConfig(){
-
-//     if(teleport){
-
-//         renderer.setRenderTarget(textureMapView);
-//         renderer.render(scene, camera);
-
-//         renderer.setRenderTarget(textureRideView);
-//         renderer.render(scene, cameraRide);
-
-//         materialSceneFinal.uniforms.sceneRide.value = textureRideView.texture;
-//         materialSceneFinal.uniforms.sceneMap.value = textureMapView.texture;
-
-//         renderer.setRenderTarget(null);
-//         renderer.render(sceneFinal, cameraFinal);
-//     } else {
-//         if (debug){
-//             renderer.render(scene, camera);
-//             // renderer2.render(scene, debugCamera)
-//         } else{
-//             renderer.render(scene, camera);
-//         }
-//     }
-
-// }
-
-
+function enableControls(){
+    camera.lookAt(controls.target)
+    controls.enabled = true;
+    controls.minDistance = 0;
+    controls.maxDistance = 80;
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.enableZoom = true;
+    controls.zoomSpeed = 0.1;
+    tlExplore.kill();
+}
 
 //////////////////////////////////////////////////
 //// GUI
 //////////////////////////////////////////////////
 var params = {color: light.color.getHex(), 
     color2: ambient.color.getHex(), 
-    color3: scene.background.getHex(), 
-    color4: scene.fog.color.getHex()};
+    color3: scene.background.getHex(),} 
+    // color4: scene.fog.color.getHex()};
 const update = function () {
 	var colorObj = new THREE.Color( params.color );
 	var colorObj2 = new THREE.Color( params.color2 );
@@ -2367,7 +1194,7 @@ const update = function () {
 	light.color.set(colorObj);
 	ambient.color.set(colorObj2);
     scene.background.set(colorObj3);
-	scene.fog.color.set(colorObj4);
+	// scene.fog.color.set(colorObj4);
 };
 
 
@@ -2427,7 +1254,7 @@ if (debug ==true){
     lightFolder.addColor(params,'color2').name('Amb color').onChange(update);
     lightFolder.add(ambient, 'intensity').min(0).max(10).step(0.001).name('Amb intensity');
     sceneFolder.addColor(params,'color3').name('Bg color').onChange(update);
-    sceneFolder.addColor(params,'color4').name('Fog color').onChange(update);
+    // sceneFolder.addColor(params,'color4').name('Fog color').onChange(update);
     // gui.add(renderer.shadowMap, 'enabled').name('Shadows').listen();
     // gui.add(options, 'reset').name('Toggle Shadows');
     const bloomFolder = gui.addFolder('Bloom pass')
@@ -2436,6 +1263,7 @@ if (debug ==true){
     bloomFolder.add(unrealBloomPass, 'threshold').min(0).max(1).step(0.001)
     gui.add(options, 'setmaxconfig').name('Post-effects?');
     gui.add(options, 'nightMode').name('Night mode?');
+    gui.closed = true;
 
     // Directional Light Helper
     // helper = new THREE.CameraHelper( light.shadow.camera );
@@ -2446,100 +1274,239 @@ let focus = {}
 focus.value = 0
 focus.target = focus.value
 focus.easing = 0.08
-const lightShift = new THREE.Vector3(0.2, 1, 0);
 
-// const clock = new THREE.Clock()
 let previousTime = 0
+
+//////////////////////////////////////////////////
+//// FAKE VOLUMETRICS 2
+/////////////////////////////////////////////////
+
+// let mesh;
+
+// // Texture
+// const size = 128;
+// const data = new Uint8Array( size * size * size );
+
+// let i = 0;
+// const scale = 0.05;
+// const perlin = new ImprovedNoise();
+// const vector = new THREE.Vector3();
+
+// for ( let z = 0; z < size; z ++ ) {
+
+//     for ( let y = 0; y < size; y ++ ) {
+
+//         for ( let x = 0; x < size; x ++ ) {
+
+//             const d = 1.0 - vector.set( x, y, z ).subScalar( size / 2 ).divideScalar( size ).length();
+//             data[ i ] = ( 128 + 128 * perlin.noise( x * scale / 1.5, y * scale, z * scale / 1.5 ) ) * d * d;
+//             i ++;
+
+//         }
+
+//     }
+
+// }
+
+// const textureFog = new THREE.DataTexture3D( data, size, size, size );
+// textureFog.format = THREE.RedFormat;
+// textureFog.minFilter = THREE.LinearFilter;
+// textureFog.magFilter = THREE.LinearFilter;
+// textureFog.unpackAlignment = 1;
+// textureFog.needsUpdate = true;
+
+
+// // Material
+
+// const vertexShader = /* glsl */`
+//     in vec3 position;
+//     uniform mat4 modelMatrix;
+//     uniform mat4 modelViewMatrix;
+//     uniform mat4 projectionMatrix;
+//     uniform vec3 cameraPos;
+//     out vec3 vOrigin;
+//     out vec3 vDirection;
+//     void main() {
+//         vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+//         vOrigin = vec3( inverse( modelMatrix ) * vec4( cameraPos, 1.0 ) ).xyz;
+//         vDirection = position - vOrigin;
+//         gl_Position = projectionMatrix * mvPosition;
+//     }
+// `;
+
+// const fragmentShader = /* glsl */`
+//     precision highp float;
+//     precision highp sampler3D;
+//     uniform mat4 modelViewMatrix;
+//     uniform mat4 projectionMatrix;
+//     in vec3 vOrigin;
+//     in vec3 vDirection;
+//     out vec4 color;
+//     uniform vec3 base;
+//     uniform sampler3D map;
+//     uniform float threshold;
+//     uniform float range;
+//     uniform float opacity;
+//     uniform float steps;
+//     uniform float frame;
+//     uint wang_hash(uint seed)
+//     {
+//             seed = (seed ^ 61u) ^ (seed >> 16u);
+//             seed *= 9u;
+//             seed = seed ^ (seed >> 4u);
+//             seed *= 0x27d4eb2du;
+//             seed = seed ^ (seed >> 15u);
+//             return seed;
+//     }
+//     float randomFloat(inout uint seed)
+//     {
+//             return float(wang_hash(seed)) / 4294967296.;
+//     }
+//     vec2 hitBox( vec3 orig, vec3 dir ) {
+//         const vec3 box_min = vec3( - 0.5 );
+//         const vec3 box_max = vec3( 0.5 );
+//         vec3 inv_dir = 1.0 / dir;
+//         vec3 tmin_tmp = ( box_min - orig ) * inv_dir;
+//         vec3 tmax_tmp = ( box_max - orig ) * inv_dir;
+//         vec3 tmin = min( tmin_tmp, tmax_tmp );
+//         vec3 tmax = max( tmin_tmp, tmax_tmp );
+//         float t0 = max( tmin.x, max( tmin.y, tmin.z ) );
+//         float t1 = min( tmax.x, min( tmax.y, tmax.z ) );
+//         return vec2( t0, t1 );
+//     }
+//     float sample1( vec3 p ) {
+//         return texture( map, p ).r;
+//     }
+//     float shading( vec3 coord ) {
+//         float step = 0.01;
+//         return sample1( coord + vec3( - step ) ) - sample1( coord + vec3( step ) );
+//     }
+//     void main(){
+//         vec3 rayDir = normalize( vDirection );
+//         vec2 bounds = hitBox( vOrigin, rayDir );
+//         if ( bounds.x > bounds.y ) discard;
+//         bounds.x = max( bounds.x, 0.0 );
+//         vec3 p = vOrigin + bounds.x * rayDir;
+//         vec3 inc = 1.0 / abs( rayDir );
+//         float delta = min( inc.x, min( inc.y, inc.z ) );
+//         delta /= steps;
+//         // Jitter
+//         // Nice little seed from
+//         // https://blog.demofox.org/2020/05/25/casual-shadertoy-path-tracing-1-basic-camera-diffuse-emissive/
+//         uint seed = uint( gl_FragCoord.x ) * uint( 1973 ) + uint( gl_FragCoord.y ) * uint( 9277 ) + uint( frame ) * uint( 26699 );
+//         vec3 size = vec3( textureSize( map, 0 ) );
+//         float randNum = randomFloat( seed ) * 2.0 - 1.0;
+//         p += rayDir * randNum * ( 1.0 / size );
+//         //
+//         vec4 ac = vec4( base, 0.0 );
+//         for ( float t = bounds.x; t < bounds.y; t += delta ) {
+//             float d = sample1( p + 0.5 );
+//             d = smoothstep( threshold - range, threshold + range, d ) * opacity;
+//             float col = shading( p + 0.5 ) * 3.0 + ( ( p.x + p.y ) * 0.25 ) + 0.2;
+//             ac.rgb += ( 1.0 - ac.a ) * d * col;
+//             ac.a += ( 1.0 - ac.a ) * d;
+//             if ( ac.a >= 0.95 ) break;
+//             p += rayDir * delta;
+//         }
+//         color = ac;
+//         if ( color.a == 0.0 ) discard;
+//     }
+// `;
+
+
+
+// //
+
+// const parameters = {
+//     threshold: 0.25,
+//     opacity: 0.25,
+//     range: 0.1,
+//     steps: 100
+// };
+
+// function updateFog() {
+
+//     materialFog.uniforms.threshold.value = parameters.threshold;
+//     materialFog.uniforms.opacity.value = parameters.opacity;
+//     materialFog.uniforms.range.value = parameters.range;
+//     materialFog.uniforms.steps.value = parameters.steps;
+
+// }
+
+// gui.add( parameters, 'threshold', 0, 1, 0.01 ).onChange( updateFog );
+// gui.add( parameters, 'opacity', 0, 1, 0.01 ).onChange( updateFog );
+// gui.add( parameters, 'range', 0, 1, 0.01 ).onChange( updateFog );
+// gui.add( parameters, 'steps', 0, 200, 1 ).onChange( updateFog );
+
+
+// let geometryFog = new THREE.BoxGeometry( 10, 10, 10 );
+// let materialFog = new THREE.RawShaderMaterial( {
+//     glslVersion: THREE.GLSL3,
+//     uniforms: {
+//         base: { value: new THREE.Color( 0x798aa0 ) },
+//         map: { value: textureFog },
+//         cameraPos: { value: new THREE.Vector3() },
+//         threshold: { value: 0.25 },
+//         opacity: { value: 0.25 },
+//         range: { value: 0.1 },
+//         steps: { value: 100 },
+//         frame: { value: 0 }
+//     },
+//     vertexShader,
+//     fragmentShader,
+//     side: THREE.DoubleSide,
+//     transparent: true
+// } );
+
+// mesh = new THREE.Mesh( geometryFog, materialFog );
+// scene.add( mesh );
+
+// let finalFogMesh;
+// function changeMaterialVolume(objectToBeChanged){
+
+//     objectToBeChanged.material = materialFog;
+//     objectToBeChanged.needsUpdate = true;
+//     finalFogMesh = objectToBeChanged;
+// }
+
 
 //////////////////////////////////////////////////
 //// ANIMMATE
 /////////////////////////////////////////////////
 function animate() {
 
-    overlay.lookAt(camera.position)
+    // if (finalFogMesh)
+    // {
+    //     finalFogMesh.material.uniforms.cameraPos.value.copy( camera.position );
+    //     // finalFogMesh.rotation.y = - performance.now() / 7500;
+    //     finalFogMesh.material.uniforms.frame.value ++;
+    // }
 
     const elapsedTime = clock.getElapsedTime()
     const deltaTime = elapsedTime - previousTime
     previousTime = elapsedTime
-    frame.update( deltaTime ).updateNode( groundMirrorMaterial );
-    frame.update( deltaTime ).updateNode( groundMirrorMaterial2 );
-    // frame.update( deltaTime ).updateNode( blurMirror );
 
 
-    // if (canAnimate){
-        
-    //     const parallaxY = - cursor.y *2
-    //     cameraGroup.position.y += (parallaxY - cameraGroup.position.y) * 0.8 * deltaTime
-    // } else{
-    //     const parallaxY = - cursor.y
-    //     cameraGroup.position.x += (parallaxY - cameraGroup.position.x) * 2 * deltaTime
+    if (!debug){
+  
+        const parallaxY = - cursor.y
+        cameraGroup.position.y += (parallaxY - cameraGroup.position.y) * 2 * deltaTime
 
-    //     const parallaxX = cursor.x *4
-    //     cameraGroup.position.z += (parallaxX - cameraGroup.position.z) * 0.8 * deltaTime
-    // }
+        const parallaxX = cursor.x
+        cameraGroup.position.x += (parallaxX - cameraGroup.position.x) * 2 * deltaTime
+    }
     
-//    if(resampled) {
-
-
-    
-
-//         if(scene.getObjectByName('Vegetation').material.userData.shader){
-//             scene.getObjectByName('Vegetation').material.userData.shader.uniforms.time.value = performance.now() / 1000;
-//         }
-
-//         // carAnimation();
-        
-//         // if(takeRide) takeRides();
-
-//     }
-
-    // if(scene.getObjectByName('PineTree').material.userData.shader){
-    //     scene.getObjectByName('Vegetation').material.userData.shader.uniforms.time.value = performance.now() / 1000;
-    // }
-
-    
-    // Birds Animation Mixer
-    // if ( mixer ) mixer.update( deltaTime *2);
-    
-    // scene.traverse( function ( child ) {
-    //     if ( child.isMesh ) {
-    //         const shader = child.material.userData.shader;
-    //         if ( shader ) {
-    //             child.material.userData.shader.uniforms.time.value = performance.now() / 1000;
-    //         }
-
-    //         // if (child.material.userData.shader){
-    //         //     child.material.userData.shader.uniforms.uTime.value = performance.now() / 1000; 
-    //         // }
-    //         // console.log(child.material);
-    //     }
-
-    // } );
-
-    // if(scene.getObjectByName('Ocean')){
-    // console.log(scene.getObjectByName('Ocean').material)
-    // // scene.getObjectByName('Ocean').material.shader.uniforms.time.value = performance.now() / 1000;
-    // }
-
-    // materialOcean.uniforms.uTime.value = performance.now() / 1000;
-    
-    TWEEN.update();
     
     if (isFocused | document.hidden) {
-        controls.update();
 
-        //Render sem efeito de linha
         if (!debug) {
-            // composer.render();
 
             if (maxConfig){
                 // default renderer
                 composer.render();
             } else {
-                // sceneConfig();
                 //Complex effetcs renderer
                 renderer.render(scene, camera);
-
             }
         }else{
             if (maxConfig){
@@ -2547,154 +1514,16 @@ function animate() {
                 composer.render();
             } else {
                 renderer.render(scene, camera);
-                // sceneConfig();
-                // renderer.render(scene, debugCamera);
             }
-            // composer.render();
-            // renderer.render(scene, camera);
         }
-       
 
-        // Render com efeito de linha
-        // effect.render(scene, camera);
-
-        // if (!isMobile) renderer.render(sceneOrtho, cameraOrtho);
-        
-
-        // Animacao do aviao
-        // if (aviao) {
-        //     // console.log(aviao.position.x)
-        //     if (aviao.position.x > 50) {
-        //         aviao.position.z = Math.random() * 5;
-        //         aviao.position.x = -50;
-        //     }
-        //     aviao.position.x += 0.1;
-        //     helice.rotation.x -= 0.4;
-        // }
-
-        // if (canAnimate){
-        //     // Animacao do Helicoptero
-        //     if (helicoptero) {
-        //         spotLightHeli.position.copy(new THREE.Vector3(helicoptero.position.x +1, helicoptero.position.y +3, helicoptero.position.z -1))
-        //         // spotLightHeli.intensity = Math.cos(clock.getElapsedTime());
-        //         // console.log(aviao.position.x)
-        //         if (helicoptero.position.z > 35) {
-        //             helicoptero.position.x = Math.random() * 2;
-        //             helicoptero.position.z = -35;
-        //         }
-        //         helicoptero.position.z += 0.04;
-        //         helice_helicoptero.rotation.y += 0.4;
-        //         helice_rotor.rotation.x += 0.4
-        //     }
-
-        //     // Birds Animation
-        //     if(bird){
-        //         if(bird.position.z > 40){
-        //             const newBirdPosition = Math.random();
-        //         bird.position.z =-40 *newBirdPosition;
-        //         bird.position.x =-40 *newBirdPosition; 
-        //         }
-        //         bird.position.z += 0.01
-        //         bird.position.x += 0.01
-        //     }
-
-        //     // Car Animation
-        //     if (car){
-        //         spotLightCar.position.copy(new THREE.Vector3(car.position.x, 0, car.position.z)).add(lightShift)
-        //         if (car.position.x > 32){
-        //             car.position.x = 0;
-        //         }else{
-        //             car.position.x += 0.03
-        //         }
-        //     }
-
-        //     // Set clouds position
-        //     cloudsMesh.position.x += 0.01;
-        //     // cloudsMesh.position.z = - Math.cos(clock.getElapsedTime()) * 2.2;
-            
-        //     if (cloudsMesh.position.x > 45){
-        //         cloudsMesh.position.x = -45;
-        //         cloudsMesh.position.z = Math.random() *10;
-                
-        //     }
-            
-            
-        //     cloudsMesh2.position.x -= 0.02;
-        //     // cloudsMesh2.position.z = Math.cos(clock.getElapsedTime()) * 6.5;
-        //     if (cloudsMesh2.position.x < -45){
-        //         cloudsMesh2.position.x = 45;
-        //     }
-
-
-        // }
-
-        // // Ferrys Animation
-        // if(rodaGigante){
-        //     rodaGigante.rotation.y += 0.01
-        // }
-
-        // cloudsMesh.lookAt(camera.position)
-        // cloudsMesh2.lookAt(camera.position)
-
-        
-        // // Wind Energy Animation
-        // if (windHeads){
-        //     for (const object of windHeads) {
-        //         object.rotation.z +=0.1;
-        //     }
-        // }
-
-
-        // Set fog based on Camera altitude
-        // if (camera.position.y > 30){
-            
-        //     controls.mapMode = true;
-        //     mapMode = true;
-
-        //     if (currentParam == "map"){
-        //         setMapIcon("camera");
-        //         // scene.fog.near = 260;
-        //         // scene.fog.far = 560;                
-        //     }
-
-        // } else {
-        //     controls.mapMode = false;
-        //     mapMode = false;
-
-        //     if (currentParam == "camera"){
-        //         setMapIcon("map");
-        //         // scene.fog.near = 125;
-        //         // scene.fog.far = 360;
-        //     }
-        //     /// Pins look at camera
-        //     // for (const object of pickableMeshes) {
-        //     //     if(object.parent.name === 'Car' || object.parent.name === 'Cube_1' || object.name === 'helicopter'){
-
-        //     //     }else{
-        //     //         object.rotation.y +=0.01;
-        //     //     }
-        //     // }
-        // }
-
-
-
-        // if (isMobile && camera.position.y > 150 ){
-        //     scene.fog.far = 4000;
-        // } else {
-        //     scene.fog.far = 350;
-        // }
-
-        // Update light position based on camera position
-        // if(light.target.position.distanceTo(controls.target) > 60) {
-        //     light.target.position.set( controls.target.x, controls.target.y, controls.target.z );
-        //     light.position.copy(controls.target).add( lightShift );
-            
-        // }
-
+        if (pisoExterno && !isMobile) pisoExterno.material.update();
+        if (pisoMadeira && !isMobile) pisoMadeira.material.update();
+    
         // Performance degradation
-        // if (loadedAll == true) {
-        //     CalculateFPS();
-        // }
+        if (loadedAll == true) {
+            CalculateFPS();
+        }
 
         // Shot a Raycaster for AutoFocus
         // raycaster2.setFromCamera(new THREE.Vector2(0,0), camera);
@@ -2718,43 +1547,21 @@ function animate() {
 
     }
 
-
     if (debug && stats) stats.update();
 
+  
+
+    controls.update();
+    // if (debug) targetDebug.position.copy(controls.target)
+
+    // prevTime = time;
+
+    
+    if (changedMaterial){    
+        changedMaterial.userData.shader.uniforms[ 'viewVector' ].value = camera.position;
+    }
+
     requestAnimationFrame(animate);
-
-   
-    //Compass Rotation
-    // camera.getWorldDirection(dir);
-    // sph.setFromVector3(dir);
-    // compass.style.transform = `rotate(${THREE.Math.radToDeg(sph.theta) - 180}deg)`;
-
-    // if (    particles.position.x < -30){
-    //     particles.position.x = 30    
-    // }
-    // particles.position.x -= 0.02
-    // particles.position.z = Math.sin(clock.getElapsedTime()/6) 
-    
-
-    // PARTICLE SYSTEM
-    // for (var i = 0; i < particlesCount; i++) {
-    //     particles[i].position.x += particles[i].direction.x;
-    //     particles[i].position.y += particles[i].direction.y;
-
-    //     // if edge is reached, bounce back
-    //     if (particles[i].position.x < -window.innerWidth ||
-    //     particles[i].position.x > window.innerWidth) {
-    //         particles[i].direction.x = -particles[i].direction.x;
-    //     }
-    //     if (particles[i].position.y < -window.innerHeight ||
-    //     particles[i].position.y > window.innerHeight) {
-    //         particles[i].direction.y = -particles[i].direction.y;
-    //     }
-    // }
-    // materialLambertGreen2.uniforms.time.value = performance.now() / 1000;
-    // materialLambertGreen2.uniformsNeedUpdate = true;
-    
-    // materialLambertGreen2.uniforms[ 'time' ].value = .00025 * ( Date.now() );
     
 }
 
@@ -2765,103 +1572,56 @@ function animate() {
 const clock = new THREE.Clock();
 
 function CalculateFPS() {
-    // const elapsedTime = clock.getElapsedTime()
+    const elapsedTime = clock.getElapsedTime()
     
-    // if (elapsedTime < 8) {
-    //     // console.log(elapsedTime);
-    //     if (!lastCalledTime) {
-    //         lastCalledTime = Date.now();
-    //         fps = 0;
-    //         return;
-    //     }
-    //     delta = (Date.now() - lastCalledTime) / 1000;
-    //     lastCalledTime = Date.now();
-    //     fps = 1 / delta;
-    //     // console.log(fps)
+    if (elapsedTime < 8) {
+        // console.log(elapsedTime);
+        if (!lastCalledTime) {
+            lastCalledTime = Date.now();
+            fps = 0;
+            return;
+        }
+        delta = (Date.now() - lastCalledTime) / 1000;
+        lastCalledTime = Date.now();
+        fps = 1 / delta;
+        // console.log(fps)
 
-    //     if (fps > 50 && !isMobile) {
-    //         // console.log(fps + "Half Quality")
-    //         // renderer.shadowMap.enabled = true;
-    //         // light.shadow.map.dispose();
-    //         // materialLambertGreen.needsUpdate = true;
-    //         // materialLambertWhite.needsUpdate = true;
-    //         // renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        if (fps > 50 && !isMobile) {
 
-    //         // renderer.shadowMap.needsUpdate = true;
-    //         // maxConfig = true;
-    //         scene.background.set(0x90c1e8);
-    //         scene.fog.color.set(0x80b6e8); 
-    //     }
-    // }
+        }
+        // console.log("Scene polycount:", renderer.info.render.triangles)
+        // console.log("Active Drawcalls:", renderer.info.render.calls)
+        // console.log("Textures in Memory", renderer.info.memory.textures)
+        // console.log("Geometries in Memory", renderer.info.memory.geometries)
+        // console.log("Scene objects", scene)
+        // console.log("Scene Geometries", scene.children)
+        // console.log("Scene", renderer.info )
+    }
     
 }
-
-
-//////////////////////////////////////////////////
-//// LOADING IMAGE WITH LOADER
-/////////////////////////////////////////////////
-// function loadImage(imageUrl, onprogress) {
-//   return new Promise((resolve, reject) => {
-//     var notifiedNotComputable = false;
-
-//     xhr.open('GET', imageUrl, true);
-//     xhr.responseType = 'arraybuffer';
-
-//     xhr.onprogress = function(ev) {
-//       if (ev.lengthComputable) {
-//         onprogress(parseInt((ev.loaded / ev.total) * 100));
-//       } else {
-//         if (!notifiedNotComputable) {
-//           notifiedNotComputable = true;
-//           onprogress(-1);
-//         }
-//       }
-//     }
-
-//     xhr.onloadend = function() {
-//       if (!xhr.status.toString().match(/^2/)) {
-//         reject(xhr);
-//       } else {
-//         if (!notifiedNotComputable) {
-//           onprogress(100);
-//         }
-
-//         var options = {}
-//         var headers = xhr.getAllResponseHeaders();
-//         var m = headers.match(/^Content-Type\:\s*(.*?)$/mi);
-
-//         if (m && m[1]) {
-//           options.type = m[1];
-//         }
-
-//         var blob = new Blob([this.response], options);
-
-//         resolve(window.URL.createObjectURL(blob));
-//       }
-//     }
-
-//     xhr.send();
-//   });
-// }
 
 //////////////////////////////////////////////////
 //// DEBUGGER
 /////////////////////////////////////////////////
+stats = new Stats();
+// document.body.appendChild(stats.dom);
 function debuger() {
-    stats = new Stats();
-    document.body.appendChild(stats.dom);
-    scene.remove(overlay);
-    controls.autoRotate = false;
+    // scene.remove(overlay);
+    // controls.autoRotate = false;
     controls.enabled = true;
-    camera.position.set(5, 4, 5);
-    controls.target.set(8,4,8)
-    camera.lookAt(controls.target);
-    // composer.insertPass(bokehPass,1);
-    // bokehPass.uniforms[ "aperture" ].value = 30 *0.00001
-    // bokehPass.needsSwap = true;
-
-
-    // renderer.shadowMap.enabled = false;
+    controls.minDistance = 0;
+    controls.maxDistance = 80;
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.enableZoom = true;
+    controls.zoomSpeed = 0.1;
+    camera.position.set(7.19, 3.08, 11.67);
+    controls.target.set(11.5,3.33,5.2);
+    // camera.lookAt(controls.target)
+    // camera.updateProjectionMatrix();
+    containerTexts.style.opacity = '1';
+    // document.getElementById("loading-text-intro").parentNode.removeChild(document.getElementById("loading-text-intro"));
+    // loadingBarElement.parentNode.removeChild(loadingBarElement);
 }
 
 //////////////////////////////////////////////////
@@ -2872,7 +1632,7 @@ if(isMobile){
     // scene.fog.near = 200;
     controls.enableRotate = true;
     // camera.fov = 35;
-    controls.maxDistance = 60;
+    // controls.maxDistance = 60;
     // camera.position.set(0,400,-80)
     camera.updateProjectionMatrix();
     // controls.maxDistance = 220;

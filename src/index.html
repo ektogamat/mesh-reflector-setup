@@ -24,20 +24,25 @@
         <meta name="msapplication-TileColor" content="#ffffff">
         <meta name="msapplication-TileImage" content="../static/favicons/ms-icon-144x144.png">
         <meta name="theme-color" content="#ffffff">      
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">        
+
     </head>
 
     <body id="body">
-
+        <div class="loading-bar"></div>
+        <div id="loading-text-intro"><p>Please wait...</p></div>
         <div class="lds-roller"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
         <div id="intro">
-            <h1 data-splitting class="slide-vertical" id="titulo-explorar">Windland</h1>
-            <p data-splitting class="sub-title" id="sub-title-explorar">Browse the map and click on the buildings to engage</p>
+            <h1 data-splitting class="slide-vertical" id="titulo-explorar"><span>T</span><span>h</span><span>r</span><span>e</span><span>e</span><span>j</span><span>s</span></h1>
+            <h2><span>g</span><span>a</span><span>l</span><span>l</span><span>e</span><span>r</span><span>y</span></h2>
+            <p data-splitting class="sub-title" id="sub-title-explorar">A collection of most recent experiences and some of the best references using ThreeJS</p>
             <a id="btnExplorar">Explore</a>
         </div>
 
-        <div class="loading-bar"></div>
         <div id="header">
-            <p>Windland</p>
+            <p>Andy gallery</p>
             <a id="music">
                 <img width="22" height="22" src="../static/icons/music.svg">
             </a>
@@ -68,24 +73,12 @@
             <progress id="progress" value="0" max="100"></progress>
         </div>
 
-        <div id="btn-view-image">
-            <a>VER FOTOS</a>
-        </div>
-
-        <div id="btnVoltar">
-            <a id="voltar">VOLTAR</a>
-        </div>
-
         <div id="btn-continue-explore">
-            <a id="continue">x</a>
-        </div>
-
-        <div id="image-display" class="zoom">
-            <img id="condo-image">
+            <a id="continue"><img src="../static/icons/close.svg" alt="back"></a>
         </div>
 
         <div id="footer">
-            <p>Created and develped with love by Anderson Mancini <a href="https://www.neotix.com.br" target="_blank">@neotix</a></p>
+            <p id="easter" >Created and develped with love by Anderson Mancini <a href="https://www.neotix.com.br" target="_blank">@neotix</a></p>
         </div>
 
     </body>
