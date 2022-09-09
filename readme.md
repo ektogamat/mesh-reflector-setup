@@ -1,13 +1,16 @@
-# SMOOTH CAMERA LOOK AT - SETUP AND INSTALL
 
-# DEMO LINK
+# THREEJS GALLERY SCENE
+Simple scene created with THREEJS to explore a gallery scene model.
 
+# Getting Started
+Download and install Node.js on your computer (https://nodejs.org/en/download/).
 
-# DOWNLOAD
-Download [Node.js](https://nodejs.org/en/download/).
-
-# Then, open yout terminal and install dependencies ( you need to do this only in the first time)
+Then, open VSCODE, drag the project folder to it. Open VSCODE terminal and install dependencies (you need to do this only in the first time)
+```
 npm install
+```
 
-# Run this command in your terminal to open a local server at localhost:8080
+Run this command in your terminal to open a local server at localhost:8080
+```
 npm run dev
+```
