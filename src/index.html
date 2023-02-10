@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        <title>Camera Smooth Animation in ThreeJS - by Anderson Mancini</title>
-        <meta name="description" content="One of the things that took me the longest to learn was how to animate the camera smoothly when clicking on an element under the influence of the #threejs OrbitControls. I do this using @trusktr's TweenJS.">
+        <title>Mesh Relector Setup - by Anderson Mancini</title>
+        <meta name="description" content="How to setup mesh reflector material properly">
         <meta name="keywords" content="threejs, smooth camera, camera animation">
         <meta name="author" content="www.neotix.com.br">
         <meta charset="utf-8">
@@ -24,63 +24,12 @@
         <meta name="msapplication-TileColor" content="#ffffff">
         <meta name="msapplication-TileImage" content="../static/favicons/ms-icon-144x144.png">
         <meta name="theme-color" content="#ffffff">      
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">        
-
     </head>
 
     <body id="body">
         <div class="loading-bar"></div>
         <div id="loading-text-intro"><p>Please wait...</p></div>
         <div class="lds-roller"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
-        <div id="intro">
-            <h1 data-splitting class="slide-vertical" id="titulo-explorar"><span>T</span><span>h</span><span>r</span><span>e</span><span>e</span><span>j</span><span>s</span></h1>
-            <h2><span>g</span><span>a</span><span>l</span><span>l</span><span>e</span><span>r</span><span>y</span></h2>
-            <p data-splitting class="sub-title" id="sub-title-explorar">A collection of most recent experiences and some of the best references using ThreeJS</p>
-            <a id="btnExplorar">Explore</a>
-        </div>
-
-        <div id="header">
-            <p>Andy gallery</p>
-            <a id="music">
-                <img width="22" height="22" src="../static/icons/music.svg">
-            </a>
-            <a id="mapmode">
-                <img id="map-icon" width="22" height="22" src="../static/icons/camera.svg">
-            </a>
-
-            <input id="menu-hamburguer" name="menu-hamburguer" type="checkbox" />
-
-            <label for="menu-hamburguer" id="menu_hamburguer">
-                <div class="menu">
-                    <span class="hamburguer"></span>
-                </div>
-            </label>
-
-            <ul id="menu-list">
-                <li><a id="menu-item-1">More Cities</a></li>
-                <li><a id="activate-effects">Toggle effects</a></li>
-                <small>Credits: <a target="_blank" href="https://www.blendswap.com/blend/28155">City</a> |  <a target="_blank" href="https://sketchfab.com/3d-models/wind-turbine-from-poly-by-google-0e172199f8f8495396eeb8fdf69c8c35">Wind Turbine</a>  |  <a target="_blank" href="https://sketchfab.com/3d-models/helicopter-dec45a28e6f346648c3d6585426157b8">Helicopter</a></small>
-            </ul>
-
-        </div>
-
-        <div id="containerWebsite">
-            <div id="nome">
-                <h1 id="jardins">Utility</h1>
-            </div>
-            <progress id="progress" value="0" max="100"></progress>
-        </div>
-
-        <div id="btn-continue-explore">
-            <a id="continue"><img src="../static/icons/close.svg" alt="back"></a>
-        </div>
-
-        <div id="footer">
-            <p id="easter" >Created and develped with love by Anderson Mancini <a href="https://www.neotix.com.br" target="_blank">@neotix</a></p>
-        </div>
-
     </body>
 
 </html>
