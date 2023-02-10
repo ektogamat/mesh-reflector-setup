@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="20.784" height="20" viewBox="0 0 20.784 20">
-  <g id="camera" transform="translate(0.452)">
-    <rect id="Retângulo_1" data-name="Retângulo 1" width="20" height="20" fill="none"/>
-    <path id="Caminho_1" data-name="Caminho 1" d="M41.169,14,36,16.783v3.181l5.169,2.783Z" transform="translate(-21.687 -8.434)" fill="none" stroke="#000" stroke-linecap="round" stroke-miterlimit="10" stroke-width="1.7"/>
-    <path id="Caminho_2" data-name="Caminho 2" d="M14.915,20.337a1.59,1.59,0,0,1-1.59,1.59H2.59A1.59,1.59,0,0,1,1,20.337V11.59A1.59,1.59,0,0,1,2.59,10H13.325a1.59,1.59,0,0,1,1.59,1.59Z" transform="translate(-0.602 -6.024)" fill="none" stroke="#000" stroke-linecap="round" stroke-miterlimit="10" stroke-width="1.7"/>
-  </g>
-</svg>

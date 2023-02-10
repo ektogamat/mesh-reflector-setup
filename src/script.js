@@ -22,7 +22,7 @@ let gui;
 /////////////////////////////////////////////////////////////////////////
 ///// DEBUG ENABLER
 /////////////////////////////////////////////////////////////////////////
-let debug = false;
+let debug = false; //use /#debug in the end of the address to enable debug mode and tweak the mesh reflector
 
 if(window.location.hash) {
     var hash = window.location.hash.substring(1);
@@ -44,11 +44,10 @@ if (hash == "debug") {
         // Loaded
         () => {
             loadingBarElement.parentNode.removeChild(loadingBarElement)
-            gsap.to("#loading-text-intro", {y: '100%', onComplete: function(){
-                
+            gsap.to("#loading-text-intro", {y: '100%', 
+            onComplete: function(){    
                 document.getElementById("loading-text-intro").parentNode.removeChild(document.getElementById("loading-text-intro"));
-                }, 
-                duration: 0.9, ease: 'power3.inOut'})
+            }, duration: 0.9, ease: 'power3.inOut'})
         },
 
         // Progress
@@ -111,7 +110,8 @@ controls = new OrbitControls(camera, renderer.domElement);
 controls.enablePan = true
 controls.screenSpacePanning = false;
 controls.enabled = true;
-controls.autoRotate = false
+controls.autoRotate = true
+controls.minDistance = 2
 controls.maxDistance = 5
 controls.maxPolarAngle = Math.PI / 2.15
 
@@ -129,7 +129,7 @@ scene.add(light);
 ///// LOADING MODEL
 /////////////////////////////////////////////////////////////////////////
 let woodFloor2, woodfloor;
-loader.load('models/gltf/art-gallery-final.glb', function (gltf) { // load the model
+loader.load('models/gltf/art-gallery-final.glb', function (gltf) {
     gltf.scene.traverse((o) => { 
 
         if (o.isMesh) {
@@ -157,7 +157,6 @@ loader.load('models/gltf/art-gallery-final.glb', function (gltf) { // load the m
 
 function setupReflectorMaterial(object){
     const woodfloorDifuse = object.material.map;
-    // const woodfloorNormal = o.material.normalMap
     object.material = new MeshReflectorMaterial(renderer, camera, scene, object,
         {
             mixBlur: 1.4,
@@ -187,7 +186,6 @@ function setupReflectorMaterial(object){
 
 function setupReflectorMaterial2(object){
     const woodfloorDifuse = object.material.map;
-    // const woodfloorNormal = o.material.normalMap
     object.material = new MeshReflectorMaterial(renderer, camera, scene, object,
         {
             mixBlur: 1.4,
@@ -215,34 +213,12 @@ function setupReflectorMaterial2(object){
         })
 }
 
-
-function addReflectorGUI(object){
-    if (debug){
-        const reflectorFolder = gui.addFolder('Reflector')
-        reflectorFolder.add(pisoExterno.material, 'roughness').min(0).max(2).step(0.001)
-        reflectorFolder.add(pisoExterno.material, 'envMapIntensity').min(0).max(2).step(0.001)
-        reflectorFolder.add(pisoExterno.material, 'emissiveIntensity').min(0).max(2).step(0.001)
-        reflectorFolder.add(pisoExterno.material, 'metalness').min(0).max(2).step(0.001)
-        // reflectorFolder.addColor(pisoExterno.material, 'color')
-        reflectorFolder.add(pisoExterno.material.reflectorProps, 'mixBlur').min(0).max(7).step(0.001)
-        reflectorFolder.add(pisoExterno.material.reflectorProps, 'mixStrength').min(0).max(200).step(0.001)
-        reflectorFolder.add(pisoExterno.material.reflectorProps, 'depthScale').min(0).max(20).step(0.1)
-        reflectorFolder.add(pisoExterno.material.reflectorProps, 'mixContrast').min(0).max(7).step(0.001)
-        reflectorFolder.add(pisoExterno.material.reflectorProps, 'minDepthThreshold').min(0).max(7).step(0.001)
-        reflectorFolder.add(pisoExterno.material.reflectorProps, 'depthToBlurRatioBias').min(0).max(7).step(0.001)
-        reflectorFolder.add(pisoExterno.material.reflectorProps, 'maxDepthThreshold').min(-5).max(7).step(0.001).onChange(function(){
-            pisoExterno.material.needsUpdate = true;
-        })
-    }
-}
-
 function addReflectorGUI2(object){
     if (debug){
         gui.add(object.material, 'roughness').min(0).max(2).step(0.001)
         gui.add(object.material, 'envMapIntensity').min(0).max(2).step(0.001)
         gui.add(object.material, 'emissiveIntensity').min(0).max(2).step(0.001)
         gui.add(object.material, 'metalness').min(0).max(2).step(0.001)
-        // gui.addColor(object.material, 'color')
         gui.add(object.material.reflectorProps, 'mixBlur').min(0).max(7).step(0.001)
         gui.add(object.material.reflectorProps, 'mixStrength').min(0).max(200).step(0.001)
         gui.add(object.material.reflectorProps, 'depthScale').min(0).max(20).step(0.1)
@@ -294,8 +270,8 @@ if (debug ==true){
 //// ANIMMATE
 function animate() {
     if (woodfloor){
-        woodfloor.material.update();
-        woodFloor2.material.update();
+        woodfloor.material.update(); // the mesh relfector doesn't work without this
+        woodFloor2.material.update();  // we need to update twice bc we have two meshes
     } 
     
     controls.update();
