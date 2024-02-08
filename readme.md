@@ -1,6 +1,6 @@
 
 # THREEJS GALLERY SCENE
-Simple scene created with THREEJS to explore a gallery scene model with mesh reflector material setup. this will be easier to understand now that all the things that are not important were removed ;)
+Simple scene created with THREEJS to explore a gallery scene model with mesh reflector material setup.
 
 # Getting Started
 Download and install Node.js on your computer (https://nodejs.org/en/download/).
